@@ -33,7 +33,7 @@
   box-shadow: var(--focus-ring);
 }
 
-/* Stock sources (All, Unsplash, Pexels, …): a row of small pills that may wrap. */
+/* Stock sources (All, Unsplash, Pixabay, …): a row of small pills that may wrap. */
 .sources {
   display: flex;
   flex-wrap: wrap;

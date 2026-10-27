@@ -393,7 +393,10 @@ export class StyleApi {
       placeholder.set('angle', slot.angle)
       const pd = asDory(placeholder)
       pd.id = d.id
+      pd.collage = d.collage
+      pd.name = d.name
       pd.field = d.field
+      pd.filterSpecs = d.filterSpecs
       if (slot.radius !== undefined) pd.maskRadius = slot.radius
       applyMask(placeholder)
       const index = view.canvas.getObjects().indexOf(img)

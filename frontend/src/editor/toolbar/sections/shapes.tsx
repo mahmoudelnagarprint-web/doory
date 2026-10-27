@@ -258,16 +258,23 @@ export function PlaceholderSection() {
   const sel = useSelection()
   const o = sel.objects[0] ?? {}
   const circle = o.maskShape === 'circle'
+  // A collage slot's shape and its place in the collage belong to the Collage panel. Leaving the generic
+  // placeholder tools here would let the toolbar pull one slot out of its frame.
+  const collage = o.collage !== undefined
   return (
     <>
-      <Placeholder on />
-      <ToolButton label={t.ctx.cropBox} pressed={!circle} testId="ed-placeholder-box" onClick={() => editor.style.setMask(undefined)}>
-        <span className={ed.textButton}>▭ {t.ctx.box}</span>
-      </ToolButton>
-      <ToolButton label={t.ctx.cropCircle} pressed={circle} testId="ed-placeholder-circle" onClick={() => editor.style.setMask('circle')}>
-        <span className={ed.textButton}>⬤ {t.ctx.circle}</span>
-      </ToolButton>
-      <FrameTool />
+      {collage ? null : <Placeholder on />}
+      {collage ? null : (
+        <>
+          <ToolButton label={t.ctx.cropBox} pressed={!circle} testId="ed-placeholder-box" onClick={() => editor.style.setMask(undefined)}>
+            <span className={ed.textButton}>▭ {t.ctx.box}</span>
+          </ToolButton>
+          <ToolButton label={t.ctx.cropCircle} pressed={circle} testId="ed-placeholder-circle" onClick={() => editor.style.setMask('circle')}>
+            <span className={ed.textButton}>⬤ {t.ctx.circle}</span>
+          </ToolButton>
+          <FrameTool />
+        </>
+      )}
       <ToolButton label={t.panels.chooseImage} testId="ed-placeholder-fill" onClick={() => void editor.insert.fillPlaceholder(editor.state.activePageId, sel.ids[0])}>
         <span className={ed.textButton}>{t.panels.chooseImage}</span>
       </ToolButton>

@@ -2,7 +2,7 @@
 
 ## What it does
 
-People can put video clips in their designs: their own uploads, or stock videos from Pexels and Pixabay (see
+People can put video clips in their designs: their own uploads, or stock videos from Pixabay (see
 [stock-media.md](../integrations/stock-media.md#videos)). The server checks every clip with `ffprobe` and makes it
 web-ready with `ffmpeg`, so every browser can play it and the editor can scrub and export it quickly:
 

@@ -1,0 +1,17 @@
+{
+  "name": "doory-local-assets",
+  "version": "1.0.0",
+  "private": true,
+  "type": "module",
+  "description": "Standalone Express endpoint that lists the premium sticker files for Doory's asset library.",
+  "scripts": {
+    "start": "node server.js",
+    "test": "node --test"
+  },
+  "engines": {
+    "node": ">=22"
+  },
+  "dependencies": {
+    "express": "^5.1.0"
+  }
+}

@@ -15,10 +15,10 @@ type Stock = NonNullable<EditorServices['stock']>
 const PROVIDERS: StockProviders = {
   providers: [
     { name: 'unsplash', label: 'Unsplash', attribution: 'Photos from Unsplash', url: 'https://unsplash.com/?utm_source=doory' },
-    { name: 'pexels', label: 'Pexels', attribution: 'Photos provided by Pexels', url: 'https://www.pexels.com/' },
+    { name: 'example', label: 'Example', attribution: 'Photos provided by Example', url: 'https://www.example.com/' },
     { name: 'pixabay', label: 'Pixabay', attribution: 'Images from Pixabay', url: 'https://pixabay.com/' },
   ],
-  all: ['unsplash', 'pexels', 'pixabay'],
+  all: ['unsplash', 'example', 'pixabay'],
   default: 'all',
 }
 
@@ -64,7 +64,7 @@ function fakeStock(overrides: Partial<Stock> = {}): Stock {
     providers: vi.fn(async () => PROVIDERS),
     search: vi.fn(async (_q: string, _page: number | string, provider?: string) =>
       provider === 'all'
-        ? page('all', [photo('unsplash', 'u1', 'Ada'), photo('pexels', 'p1', 'Grace'), photo('pixabay', 'x1', 'Josch')], { skipped: [] })
+        ? page('all', [photo('unsplash', 'u1', 'Ada'), photo('example', 'p1', 'Grace'), photo('pixabay', 'x1', 'Josch')], { skipped: [] })
         : page(provider ?? '', [photo(provider ?? 'unsplash', 'only', 'Linus')]),
     ),
     importPhoto: vi.fn(),
@@ -84,12 +84,12 @@ describe('ImageDrawer stock photos', () => {
     await open(stock)
     expect(await screen.findAllByTestId('stock-photo')).toHaveLength(3)
     expect(screen.getByTestId('stock-source-all')).toHaveAttribute('aria-selected', 'true')
-    expect(screen.getAllByTestId('stock-badge').map((b) => b.textContent)).toEqual(['Unsplash', 'Pexels', 'Pixabay'])
+    expect(screen.getAllByTestId('stock-badge').map((b) => b.textContent)).toEqual(['Unsplash', 'Example', 'Pixabay'])
     expect(stock.search).toHaveBeenCalledWith('nature', 1, 'all')
-    expect(screen.getAllByTestId('stock-photo')[1]).toHaveAttribute('title', 'Photo by Grace on Pexels')
+    expect(screen.getAllByTestId('stock-photo')[1]).toHaveAttribute('title', 'Photo by Grace on Example')
     const credits = screen.getByTestId('stock-attribution')
     expect(credits).toHaveTextContent('Photos from Unsplash')
-    expect(credits).toHaveTextContent('Photos provided by Pexels')
+    expect(credits).toHaveTextContent('Photos provided by Example')
     expect(credits).toHaveTextContent('Images from Pixabay')
   })
 
@@ -97,18 +97,18 @@ describe('ImageDrawer stock photos', () => {
     const stock = fakeStock()
     await open(stock)
     await screen.findAllByTestId('stock-photo')
-    await userEvent.click(screen.getByTestId('stock-source-pexels'))
-    await waitFor(() => expect(stock.search).toHaveBeenLastCalledWith('nature', 1, 'pexels'))
+    await userEvent.click(screen.getByTestId('stock-source-example'))
+    await waitFor(() => expect(stock.search).toHaveBeenLastCalledWith('nature', 1, 'example'))
     expect(await screen.findAllByTestId('stock-photo')).toHaveLength(1)
     expect(screen.queryByTestId('stock-badge')).toBeNull()
-    expect(screen.getByTestId('stock-attribution')).toHaveTextContent(/^Photos provided by Pexels$/)
-    expect(window.localStorage.getItem('doory.stock.tab')).toBe('pexels')
+    expect(screen.getByTestId('stock-attribution')).toHaveTextContent(/^Photos provided by Example$/)
+    expect(window.localStorage.getItem('doory.stock.tab')).toBe('example')
 
     engine?.dispose()
     document.body.innerHTML = ''
     const again = fakeStock()
     await open(again)
-    await waitFor(() => expect(again.search).toHaveBeenCalledWith('nature', 1, 'pexels'))
+    await waitFor(() => expect(again.search).toHaveBeenCalledWith('nature', 1, 'example'))
   })
 
   it('has no source tabs with a single provider', async () => {
@@ -122,10 +122,10 @@ describe('ImageDrawer stock photos', () => {
 
   it('names the providers the All search skipped', async () => {
     const stock = fakeStock({
-      search: vi.fn(async () => page('all', [photo('unsplash', 'u1')], { skipped: [{ provider: 'pexels', reason: 'busy', retry_after: 30 }] })),
+      search: vi.fn(async () => page('all', [photo('unsplash', 'u1')], { skipped: [{ provider: 'example', reason: 'busy', retry_after: 30 }] })),
     })
     await open(stock)
-    expect(await screen.findByTestId('stock-skipped')).toHaveTextContent('Pexels is busy. Showing Unsplash.')
+    expect(await screen.findByTestId('stock-skipped')).toHaveTextContent('Example is busy. Showing Unsplash.')
     // Only the providers whose photos are on screen are credited.
     expect(screen.getByTestId('stock-attribution')).toHaveTextContent(/^Photos from Unsplash$/)
   })
@@ -135,14 +135,14 @@ describe('ImageDrawer stock photos', () => {
       search: vi.fn(async () =>
         page('all', [photo('unsplash', 'u1')], {
           skipped: [
-            { provider: 'pexels', reason: 'timeout', retry_after: null },
+            { provider: 'example', reason: 'timeout', retry_after: null },
             { provider: 'pixabay', reason: 'unavailable', retry_after: null },
           ],
         }),
       ),
     })
     await open(stock)
-    expect(await screen.findByTestId('stock-skipped')).toHaveTextContent('Pexels didn’t answer in time, Pixabay is unavailable. Showing Unsplash.')
+    expect(await screen.findByTestId('stock-skipped')).toHaveTextContent('Example didn’t answer in time, Pixabay is unavailable. Showing Unsplash.')
   })
 
   it('does not carry an All cursor into a provider tab when the answer arrives after the switch', async () => {
@@ -150,7 +150,7 @@ describe('ImageDrawer stock photos', () => {
     const stock = fakeStock({
       search: vi.fn((_q: string, p: number | string, provider?: string) => {
         if (provider === 'all') return new Promise<StockPage>((resolve) => (answerAll = resolve))
-        return Promise.resolve(page('pexels', [photo('pexels', `p${String(p)}`)], { next_page: p === 1 ? 2 : null, total: 99 }))
+        return Promise.resolve(page('example', [photo('example', `p${String(p)}`)], { next_page: p === 1 ? 2 : null, total: 99 }))
       }),
     })
     let fire: (() => void) | null = null
@@ -167,13 +167,13 @@ describe('ImageDrawer stock photos', () => {
     try {
       await open(stock)
       await waitFor(() => expect(answerAll).not.toBeNull())
-      await userEvent.click(screen.getByTestId('stock-source-pexels'))
+      await userEvent.click(screen.getByTestId('stock-source-example'))
       await screen.findAllByTestId('stock-photo')
       await act(async () => answerAll?.(page('all', [photo('unsplash', 'u1')], { next_page: 'CURSOR', total: 99 })))
       await act(async () => fire?.())
-      await waitFor(() => expect(stock.search).toHaveBeenLastCalledWith('nature', 2, 'pexels'))
-      expect(stock.search).not.toHaveBeenCalledWith('nature', 'CURSOR', 'pexels')
-      expect((await screen.findAllByTestId('stock-photo')).map((b) => b.getAttribute('title'))).toEqual(['Photo by Ada on Pexels', 'Photo by Ada on Pexels'])
+      await waitFor(() => expect(stock.search).toHaveBeenLastCalledWith('nature', 2, 'example'))
+      expect(stock.search).not.toHaveBeenCalledWith('nature', 'CURSOR', 'example')
+      expect((await screen.findAllByTestId('stock-photo')).map((b) => b.getAttribute('title'))).toEqual(['Photo by Ada on Example', 'Photo by Ada on Example'])
     } finally {
       vi.unstubAllGlobals()
     }
@@ -181,7 +181,7 @@ describe('ImageDrawer stock photos', () => {
 
   it('pages on with the cursor the All search returned', async () => {
     const stock = fakeStock({
-      search: vi.fn(async (_q: string, p: number | string) => (p === 1 ? page('all', [photo('unsplash', 'u1')], { next_page: 'CURSOR', total: 99 }) : page('all', [photo('pexels', 'p2')]))),
+      search: vi.fn(async (_q: string, p: number | string) => (p === 1 ? page('all', [photo('unsplash', 'u1')], { next_page: 'CURSOR', total: 99 }) : page('all', [photo('example', 'p2')]))),
     })
     let fire: (() => void) | null = null
     vi.stubGlobal(
@@ -207,12 +207,12 @@ describe('ImageDrawer stock photos', () => {
 
   it('says when a provider is busy', async () => {
     const stock = fakeStock({
-      providers: vi.fn(async () => ({ ...PROVIDERS, default: 'pexels' })),
+      providers: vi.fn(async () => ({ ...PROVIDERS, default: 'example' })),
       search: vi.fn(async () => {
         throw new ApiError({ status: 429, code: 'stock_busy', message: 'busy', retryAfter: 12 })
       }),
     })
     await open(stock)
-    expect(await screen.findByRole('alert')).toHaveTextContent(t.imageDrawer.stockBusy('Pexels', 12))
+    expect(await screen.findByRole('alert')).toHaveTextContent(t.imageDrawer.stockBusy('Example', 12))
   })
 })

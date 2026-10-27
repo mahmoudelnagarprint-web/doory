@@ -25,8 +25,11 @@ export const BUDGETS = {
    * and TanStack Query (10 kB) already take 114 kB of it, so this guards what the shell has today.
    */
   initialLanding: 170 * KB,
-  /** Editor route before the first interaction: entry + page + editor chunk + Fabric + strings + styles. */
-  initialEditor: 450 * KB,
+  /**
+   * Editor route before the first interaction: entry + page + editor chunk + Fabric + strings + styles.
+   * The asset library and cut-line controls added a few kB; the tracer and Paper.js stay behind import().
+   */
+  initialEditor: 460 * KB,
   /** The editor chunk itself (its own file, not its imports). */
   editorChunk: 160 * KB,
   /** Any single JS chunk that is not one of the named vendor chunks, minified bytes (Vite's own warning is 500 kB). */

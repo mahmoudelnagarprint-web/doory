@@ -1,5 +1,5 @@
 /**
- * The Videos tool's Stock tab: search free clips from the server's video providers (Pexels, Pixabay), by orientation
+ * The Videos tool's Stock tab: search free clips from the server's video providers (Pixabay), by orientation
  * and length. A clip previews while the pointer rests on it (or it has focus, without reduced motion); picking one has
  * the server download and convert it into the person's uploads, then it is added to the page with its credit.
  */

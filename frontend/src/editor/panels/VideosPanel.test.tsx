@@ -14,10 +14,10 @@ const INFO: VideoInfo = {
   max_upload_bytes: 200 * 1024 * 1024,
   max_duration_ms: 600_000,
   providers: [
-    { name: 'pexels_video', label: 'Pexels', attribution: 'Videos provided by Pexels', url: 'https://www.pexels.com/' },
+    { name: 'example_video', label: 'Example', attribution: 'Videos provided by Example', url: 'https://www.example.com/' },
     { name: 'pixabay_video', label: 'Pixabay', attribution: 'Videos from Pixabay', url: 'https://pixabay.com/' },
   ],
-  all: ['pexels_video', 'pixabay_video'],
+  all: ['example_video', 'pixabay_video'],
   default: 'all',
 }
 
@@ -32,11 +32,11 @@ const clipRef = (id: string, status: 'ready' | 'processing' | 'failed' = 'ready'
   video: { status, error: status === 'failed' ? 'The video could not be converted.' : '', posterUrl: `/media/${id}-poster.webp`, audioUrl: '', durationMs: 7000, fps: 30, filmstrip: null },
 })
 
-const stock = (id: string, provider = 'pexels_video'): StockVideo => ({
+const stock = (id: string, provider = 'example_video'): StockVideo => ({
   id,
   provider,
-  thumb_url: `https://images.pexels.com/${id}.jpg`,
-  preview_url: `https://videos.pexels.com/${id}.mp4`,
+  thumb_url: `https://images.example.com/${id}.jpg`,
+  preview_url: `https://videos.example.com/${id}.mp4`,
   width: 1920,
   height: 1080,
   duration_ms: 12_000,
@@ -172,7 +172,7 @@ describe('Videos tool', () => {
     fireEvent.click(await screen.findByTestId('video-tab-stock'))
     await screen.findAllByTestId('stock-video')
     expect(service.search).toHaveBeenLastCalledWith('nature', 1, expect.objectContaining({ provider: 'all' }))
-    expect(screen.getByTestId('stock-video-attribution')).toHaveTextContent('Videos provided by Pexels · Videos from Pixabay')
+    expect(screen.getByTestId('stock-video-attribution')).toHaveTextContent('Videos provided by Example · Videos from Pixabay')
 
     fireEvent.click(screen.getByRole('radio', { name: t.clips.stock.orientations.portrait }))
     await waitFor(() => expect(service.search).toHaveBeenLastCalledWith('nature', 1, expect.objectContaining({ orientation: 'portrait' })))
@@ -187,7 +187,7 @@ describe('Videos tool', () => {
     const [first] = await screen.findAllByTestId('stock-video')
     expect(screen.queryByTestId('stock-video-preview')).toBeNull()
     fireEvent.pointerEnter(first)
-    expect(screen.getByTestId('stock-video-preview')).toHaveAttribute('src', 'https://videos.pexels.com/1.mp4')
+    expect(screen.getByTestId('stock-video-preview')).toHaveAttribute('src', 'https://videos.example.com/1.mp4')
     fireEvent.pointerLeave(first)
     expect(screen.queryByTestId('stock-video-preview')).toBeNull()
   })

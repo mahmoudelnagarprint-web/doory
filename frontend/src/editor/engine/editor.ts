@@ -15,6 +15,7 @@ import { VideosApi } from './api/videos'
 import { ArrangeApi } from './api/arrange'
 import { ClipboardApi } from './api/clipboard'
 import { CropApi } from './api/crop'
+import { CutLineApi } from './api/cutline'
 import { InsertApi } from './api/insert'
 import { PagesApi } from './api/pages'
 import { StyleApi } from './api/style'
@@ -121,6 +122,7 @@ export class EditorEngine implements PageCanvasHost {
   readonly videos: VideosApi
   readonly clipboard: ClipboardApi
   readonly crop: CropApi
+  readonly cutline: CutLineApi
   readonly view: ViewApi
   readonly persistence: PersistenceController
   adapter: EditorAdapter
@@ -138,11 +140,15 @@ export class EditorEngine implements PageCanvasHost {
   private liveRaf = 0
   private disposed = false
   private readonly unsubscribePresets: () => void
+  /** The editor root whose CSS variables theme the canvases; the Atelier mode is one of its attributes. */
+  private themeRoot: Element | null = null
+  private themeRootObserver: MutationObserver | null = null
   private live: LiveSession | null = null
   private liveReadOnly = false
   private editLocks: ReadonlyMap<string, ReadonlySet<string>> = new Map()
   /** Told when the user tries to edit text somebody else is editing (set by the live session). */
   editBlockedHandler: ((pageId: string, id: string) => void) | null = null
+  private _collage?: import('./api/collage').CollageApi
 
   constructor(options: EditorEngineOptions) {
     this.adapter = options.adapter
@@ -168,6 +174,7 @@ export class EditorEngine implements PageCanvasHost {
     this.videos = new VideosApi(this)
     this.clipboard = new ClipboardApi(this)
     this.crop = new CropApi(this)
+    this.cutline = new CutLineApi(this)
     this.view = new ViewApi(this)
     this.persistence = new PersistenceController(this)
     // Safe zones come from the size preset catalogue, which may arrive after the pages are drawn.
@@ -185,6 +192,23 @@ export class EditorEngine implements PageCanvasHost {
   }
   get theme(): CanvasTheme {
     return this.themeValue
+  }
+
+  get collage(): import('./api/collage').CollageApi {
+    if (!this._collage) {
+      // Lazy-load CollageApi to keep it out of the initial editor bundle.
+      // eslint-disable-next-line @typescript-eslint/no-var-requires
+      const mod = require('./api/collage') as typeof import('./api/collage')
+      this._collage = new mod.CollageApi(this)
+    }
+    return this._collage
+  }
+
+  /** Lets the mounted editor root provide the canvas tokens (and tells the canvases when Atelier mode changes). */
+  setThemeRoot(root: Element | null): void {
+    this.themeRoot = root
+    this.observeThemeRoot()
+    this.refreshTheme()
   }
   get tool(): ToolId {
     const ui = this.state.ui
@@ -804,19 +828,32 @@ export class EditorEngine implements PageCanvasHost {
     return off
   }
 
+  private refreshTheme(): void {
+    this.themeValue = readCanvasTheme(this.themeRoot ?? document.documentElement)
+    applyThemeDefaults(this.themeValue)
+    for (const v of this.allViews()) v.setTheme(this.themeValue)
+  }
+
+  private observeThemeRoot(): void {
+    this.themeRootObserver?.disconnect()
+    this.themeRootObserver = null
+    if (!this.themeRoot || typeof MutationObserver === 'undefined') return
+    this.themeRootObserver = new MutationObserver(() => this.refreshTheme())
+    this.themeRootObserver.observe(this.themeRoot, { attributes: true, attributeFilter: ['class', 'data-theme', 'data-collage-studio'] })
+  }
+
   private watchTheme(): () => void {
-    const update = (): void => {
-      this.themeValue = readCanvasTheme()
-      applyThemeDefaults(this.themeValue)
-      for (const v of this.allViews()) v.setTheme(this.themeValue)
-    }
+    const update = (): void => this.refreshTheme()
     const mo = new MutationObserver(update)
     mo.observe(document.documentElement, { attributes: true, attributeFilter: ['data-theme', 'class', 'data-contrast'] })
     const mq = typeof matchMedia === 'function' ? matchMedia('(prefers-color-scheme: dark)') : null
     mq?.addEventListener('change', update)
+    this.observeThemeRoot()
     return () => {
       mo.disconnect()
       mq?.removeEventListener('change', update)
+      this.themeRootObserver?.disconnect()
+      this.themeRootObserver = null
     }
   }
 

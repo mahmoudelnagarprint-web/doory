@@ -13,6 +13,7 @@ import { applyMask } from '../objects/masks'
 import { kindOfLive } from '../objects/kinds'
 import { anchorFrames, carriedPictures, clampSlotImage, coverSlotTransform, followFrames, hasSlot, mirrorSlot, shiftSlot } from '../objects/slot'
 import { getExtraProps } from '../serialization'
+import { collageMetaOf } from '../collage/model'
 import { coverFrame } from './insert'
 import { isFiniteNumber } from '../numbers'
 import { type ZMode, moveId, reorderIds } from '../zorder'
@@ -110,8 +111,20 @@ export class ArrangeApi {
       const of = (o as unknown as Record<string, unknown>).videoBackdropOf
       return typeof of === 'string' && gone.has(of) && !objs.includes(o)
     })
+    // A collage slot's mat and gold ring mean nothing without the slot: delete them with it.
+    const collageKeys = new Set(
+      objs
+        .map((o) => collageMetaOf(o))
+        .filter((meta): meta is NonNullable<typeof meta> => !!meta)
+        .map((meta) => `${meta.id}:${meta.index}`),
+    )
+    const companions = view.canvas.getObjects().filter((o) => {
+      if (objs.includes(o)) return false
+      const meta = collageMetaOf(o)
+      return !!meta?.role && collageKeys.has(`${meta.id}:${meta.index}`)
+    })
     view.canvas.discardActiveObject()
-    view.canvas.remove(...objs, ...backdrops)
+    view.canvas.remove(...objs, ...backdrops, ...companions)
     view.canvas.requestRenderAll()
     this.done(objs.length === 1 ? t.history.deleteLayer : t.history.deleteLayers)
     this.engine.announce(t.announce.deleted(objs.length))
@@ -132,6 +145,8 @@ export class ArrangeApi {
     const clones = await Promise.all(objs.map((o) => o.clone(props)))
     for (const c of clones) {
       reidTree(c)
+      // A copied slot becomes a free picture: two slots with one collage index would fight over its frame.
+      delete (c as unknown as Record<string, unknown>).collage
       c.set({ left: c.left + offset, top: c.top + offset })
       shiftSlot(c, offset, offset)
       view.configure(c)

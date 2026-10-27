@@ -282,7 +282,7 @@ export interface StockPage {
 export interface StockProviderInfo {
   name: string
   label: string
-  /** The credit line the provider asks for, e.g. "Photos provided by Pexels". */
+  /** The credit line the provider asks for, e.g. "Photos provided by Unsplash". */
   attribution: string
   url: string
 }
@@ -706,4 +706,42 @@ export type BulkFillRow =
 export interface BulkFillResult {
   created: number
   rows: BulkFillRow[]
+}
+
+/** A premium sticker the server found under LOCAL_ASSETS_DIR (the asset library's "My assets" tab). */
+export interface LocalAsset {
+  name: string
+  /** Path inside the folder, e.g. `badges/verified.svg`. */
+  path: string
+  /** Public URL the web server serves the file at. */
+  url: string
+  type: 'svg' | 'image'
+  size: number
+}
+
+export interface LocalAssetsPage {
+  /** False when the folder is missing on the server; the tab then explains how to add it. */
+  enabled: boolean
+  url: string
+  count: number
+  total: number
+  /** The folder has more files than LOCAL_ASSETS_MAX_FILES. */
+  truncated: boolean
+  assets: LocalAsset[]
+  detail?: string
+}
+
+/** One Iconify icon id, split for display and for the SVG request. */
+export interface IconifyIcon {
+  id: string
+  prefix: string
+  name: string
+  label: string
+}
+
+export interface IconifySearchPage {
+  icons: IconifyIcon[]
+  total: number
+  /** Offset of the next page, or null at the end. */
+  nextStart: number | null
 }

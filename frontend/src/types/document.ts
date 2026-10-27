@@ -33,6 +33,8 @@ export interface DocObject {
   name?: string
   locked?: boolean
   visible?: boolean
+  /** Smart Collage Studio metadata: the collage a slot or its mat/frame belongs to. */
+  collage?: CollageMeta
   [prop: string]: unknown
 }
 
@@ -144,6 +146,55 @@ export interface SlotSpec {
   mask?: MaskShape
   radius?: number
   src?: string
+}
+
+/* ------------------------------------------------------------------------------------------------
+ * Smart Collage Studio. A collage is stored on its own objects (one `collage` meta on every slot and
+ * on each slot's mat/inner frame), so it survives copy/paste, partial undo and older documents without
+ * a page-level schema change. The layout is re-derived from this meta and the current page bounds.
+ * ---------------------------------------------------------------------------------------------- */
+
+export type CollageLayoutId = 'grid' | 'hero' | 'mosaic' | 'strip' | 'masonry' | 'polaroid' | 'arch'
+
+/** A companion frame object: the museum mat behind a slot, or the inner gold ring above it. */
+export type CollageRole = 'mat' | 'inner'
+
+export interface CollageBounds {
+  x: number
+  y: number
+  width: number
+  height: number
+}
+
+/** The double border, mat and corner treatment shared by every slot of one collage. Lengths are page px. */
+export interface CollageStyle {
+  matColor: string
+  matWidth: number
+  outerColor: string
+  outerWidth: number
+  innerColor: string
+  innerWidth: number
+  radius: number
+  shadow?: ShadowSpec
+}
+
+export interface CollageMeta {
+  /** Shared by every slot, mat and inner frame of one collage. */
+  id: string
+  name?: string
+  layout: CollageLayoutId
+  /** Space between slots, and between the slots and the collage bounds. Page px. */
+  gap: number
+  margin: number
+  /** Right-to-left reading order: slot 1 sits at the right. */
+  rtl: boolean
+  /** Reading-order position of the slot (0-based). Frames carry the same index as their slot. */
+  index: number
+  /** The area the layout solves inside, normally the page. */
+  bounds: CollageBounds
+  style: CollageStyle
+  /** Absent on a photo/placeholder slot; `mat` and `inner` are its non-interactive companions. */
+  role?: CollageRole
 }
 
 /** What a template field holds: replaceable text, a picture, or a colour (the object's fill). */

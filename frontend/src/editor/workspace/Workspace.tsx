@@ -7,6 +7,7 @@ import { getPageSize, pageSizes, widestPage } from '../engine/pageSizes'
 import { wheelZoom } from '../engine/zoom'
 import { useLatest } from '../hooks/useLatest'
 import { t } from '../strings'
+import { hasAssetDrag, readAssetDrag } from '../drawers/assetDrag'
 import { LazyCommentPins } from './CommentPinsLoader'
 import { PageSlot } from './PageSlot'
 import { Rulers } from './Rulers'
@@ -364,7 +365,7 @@ export function Workspace({ stripOpen, onToggleStrip }: WorkspaceProps) {
   }
 
   const onDragOver = (e: React.DragEvent): void => {
-    if (readOnly || !e.dataTransfer.types.includes('Files')) return
+    if (readOnly || (!hasAssetDrag(e.dataTransfer) && !e.dataTransfer.types.includes('Files'))) return
     e.preventDefault()
     e.dataTransfer.dropEffect = 'copy'
     setDropping(true)
@@ -372,15 +373,24 @@ export function Workspace({ stripOpen, onToggleStrip }: WorkspaceProps) {
   const onDrop = (e: React.DragEvent): void => {
     setDropping(false)
     if (readOnly) return
-    const files = imageFilesFrom(e.dataTransfer)
-    if (files.length === 0) return
-    e.preventDefault()
     const el = (document.elementFromPoint(e.clientX, e.clientY) as HTMLElement | null)?.closest<HTMLElement>('[data-page-id]')
     const pageId = el?.dataset.pageId ?? editor.state.activePageId
     const point = editor.view.clientToPage(pageId, e.clientX, e.clientY)
     const size = editor.pageSizeOf(pageId)
-    const inside = point && point.x >= 0 && point.y >= 0 && point.x <= size.width && point.y <= size.height ? point : undefined
-    void editor.insert.imageFiles(files, inside, pageId)
+    const at = point && point.x >= 0 && point.y >= 0 && point.x <= size.width && point.y <= size.height ? point : undefined
+    // A stock photo or local asset dragged from the Asset library: the same placement rules as files.
+    const dragged = readAssetDrag(e.dataTransfer)
+    if (dragged) {
+      e.preventDefault()
+      void import('../drawers/dropAsset')
+        .then(({ insertDraggedAsset }) => insertDraggedAsset(editor, dragged, at, pageId))
+        .catch(() => editor.toast(t.assetLibrary.insertFailed, 'error'))
+      return
+    }
+    const files = imageFilesFrom(e.dataTransfer)
+    if (files.length === 0) return
+    e.preventDefault()
+    void editor.insert.imageFiles(files, at, pageId)
   }
 
   return (

@@ -49,6 +49,8 @@ export const EXTRA_PROPS: readonly string[] = [
   'isPlaceholder',
   /** The frame a placeholder photo fills. */
   'slot',
+  /** Smart Collage Studio membership and layout settings (see types/document.ts). */
+  'collage',
   /** Hyperlink for PDF / shared view. */
   'link',
   /** Template field tag: a stable name for data to fill. */

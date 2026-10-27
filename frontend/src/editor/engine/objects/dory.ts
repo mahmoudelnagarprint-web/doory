@@ -6,6 +6,7 @@ import type { FabricObject } from 'fabric'
 import { newId } from '@/lib/document'
 import type {
   ArrowHead,
+  CollageMeta,
   DocField,
   DocTextFit,
   ImageFilterSpec,
@@ -41,6 +42,8 @@ export interface DoryProps {
   isPlaceholder?: boolean
   /** On a picture that fills a placeholder: the frame it stays inside (see objects/slot.ts). */
   slot?: SlotSpec
+  /** Smart Collage Studio membership: shared by a slot and its mat/inner frames. */
+  collage?: CollageMeta
   link?: { url: string }
   field?: DocField
   /** Shrink-to-fit rule on a text box, plus the derived size and the user's preferred size/box height. */

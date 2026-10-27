@@ -184,7 +184,7 @@ export interface EditorServices {
     providers(): Promise<StockProviders>
     /** `page` is a page number, or the cursor an `all` search returned; `provider` is a name or `all`. */
     search(q: string, page: number | string, provider?: string): Promise<StockPage>
-    importPhoto(photo: StockPhoto): Promise<AssetRef>
+    importPhoto(photo: Pick<StockPhoto, 'provider' | 'id'>): Promise<AssetRef>
   } | null
   /** Remote AI image tasks; `null` or absent: only the in-browser model (guests, shared links). */
   ai?: AiService | null

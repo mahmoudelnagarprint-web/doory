@@ -1,4 +1,4 @@
-import { Clapperboard, Images, LayoutTemplate, Layers, Music, PaintBucket, Palette, Shapes, Sparkles, Sticker, Type } from 'lucide-react'
+import { Clapperboard, Images, LayoutGrid, LayoutTemplate, Layers, Music, PaintBucket, Palette, PanelsTopLeft, Shapes, Sparkles, Type } from 'lucide-react'
 import { ImageDrawer } from '../drawers/ImageDrawer'
 import { ShapesDrawer } from '../drawers/ShapesDrawer'
 import { TextDrawer } from '../drawers/TextDrawer'
@@ -6,7 +6,6 @@ import { BackgroundPanel } from '../panels/BackgroundPanel'
 import { CommentsButtonIcon } from '../panels/CommentsButtonIcon'
 import { LayersPanel } from '../panels/LayersPanel'
 import { registerPanel } from '../panels/registry'
-import { StickerPanel } from '../panels/StickerPanel'
 import { t } from '../strings'
 import { loadable } from '../ui/loadable'
 import { LazyCommentPins } from '../workspace/CommentPinsLoader'
@@ -19,6 +18,9 @@ const AnimatePanel = loadable(() => import('../panels/AnimatePanel').then((m) =>
 const AudioPanel = loadable(() => import('../panels/AudioPanel').then((m) => m.AudioPanel))
 const VideosPanel = loadable(() => import('../panels/VideosPanel').then((m) => m.VideosPanel))
 const CommentsPanel = loadable(() => import('../panels/CommentsPanel').then((m) => m.CommentsPanel))
+const ElementsPanel = loadable(() => import('../panels/elements/ElementsPanel').then((m) => m.ElementsPanel))
+const AssetLibraryPanel = loadable(() => import('../panels/AssetLibraryPanel').then((m) => m.AssetLibraryPanel))
+const CollagePanel = loadable(() => import('../panels/CollagePanel').then((m) => m.CollagePanel))
 
 /** Rail icons: lucide at 20 px, so the rail reads as one set. */
 const icon = (Glyph: typeof Type) => <Glyph size={20} strokeWidth={1.8} aria-hidden="true" />
@@ -33,7 +35,9 @@ export function registerBuiltinPanels(): void {
   registerPanel({ id: 'templates', label: t.rail.templates, icon: icon(LayoutTemplate), order: 5, placement: 'sidebar', component: TemplatesPanel, preload: TemplatesPanel.preload, requires: editable })
   registerPanel({ id: 'text', label: t.rail.text, icon: icon(Type), order: 10, placement: 'drawer', component: TextDrawer, requires: editable, shortcut: 'T' })
   registerPanel({ id: 'shapes', label: t.rail.shapes, icon: icon(Shapes), order: 20, placement: 'drawer', component: ShapesDrawer, requires: editable })
-  registerPanel({ id: 'elements', label: t.rail.elements, title: t.stickers.title, icon: icon(Sticker), order: 30, placement: 'sidebar', component: StickerPanel, requires: editable })
+  registerPanel({ id: 'elements', label: 'Elements', title: 'Elements', icon: icon(Shapes), order: 30, placement: 'sidebar', width: 360, component: ElementsPanel, preload: ElementsPanel.preload, requires: editable })
+  registerPanel({ id: 'assets', label: t.rail.assets, title: t.assetLibrary.title, icon: icon(LayoutGrid), order: 35, placement: 'sidebar', width: 360, component: AssetLibraryPanel, preload: AssetLibraryPanel.preload, requires: editable })
+  registerPanel({ id: 'collage', label: 'Collage', title: 'Collage studio', icon: icon(PanelsTopLeft), order: 37, placement: 'sidebar', width: 370, component: CollagePanel, preload: CollagePanel.preload, requires: editable })
   registerPanel({ id: 'image', label: t.rail.image, icon: icon(Images), order: 40, placement: 'drawer', component: ImageDrawer, requires: editable })
   registerPanel({ id: 'videos', label: t.rail.videos, icon: icon(Clapperboard), order: 45, placement: 'drawer', component: VideosPanel, preload: VideosPanel.preload, requires: editable })
   registerPanel({ id: 'background', label: t.rail.background, icon: icon(PaintBucket), order: 60, placement: 'drawer', component: BackgroundPanel, requires: editable })
@@ -51,8 +55,6 @@ export function registerBuiltinPanels(): void {
     readOnly: true,
     component: CommentsPanel,
     preload: () => void Promise.all([CommentsPanel.preload(), LazyCommentPins.preload()]),
-    // Only where someone can actually comment: an account with the comments service, or a comment link. A guest's design has
-    // no Comments button (it would only lead to the sign-up dialog); signing up brings it.
     requires: ({ editor, state }) => state.mode !== 'shared-view' && (!!editor.adapter.services.comments || state.mode === 'shared-comment'),
   })
 }

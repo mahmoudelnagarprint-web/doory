@@ -3,11 +3,15 @@ from django.conf.urls.static import static
 from django.contrib import admin
 from django.urls import include, path
 
+from apps.assets.local_assets import LocalAssetsView
 from apps.gallery.sitemap import sitemap
 
 urlpatterns = [
     path("admin/", admin.site.urls),
     path("sitemap.xml", sitemap, name="sitemap"),
+    # Unversioned alias of /api/v1/local-assets/ for clients that use the /api/local-assets contract.
+    path("api/local-assets", LocalAssetsView.as_view(), name="local-assets-root"),
+    path("api/local-assets/", LocalAssetsView.as_view(), name="local-assets-root-slash"),
     path("api/v1/", include("apps.core.urls")),
     path("api/v1/", include("apps.accounts.urls")),
     path("api/v1/", include("apps.designs.urls")),

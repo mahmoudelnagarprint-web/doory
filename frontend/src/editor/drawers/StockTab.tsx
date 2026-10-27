@@ -10,6 +10,7 @@ import { useDebounced } from '../hooks/useDebounced'
 import type { PanelProps } from '../panels/registry'
 import { t } from '../strings'
 import { Skeleton } from '../ui/Skeleton'
+import { setAssetDrag } from './assetDrag'
 import styles from './Drawers.module.css'
 
 const STOCK_TAB_KEY = 'doory.stock.tab'
@@ -31,11 +32,13 @@ function stockFailure(error: unknown, label: string | null): string {
 }
 
 /** Stock tab: search free photos, add one (the server imports it with its attribution). `onPick` uses the
- *  imported photo another way (e.g. as the page background) instead of adding it to the page. */
-export function StockTab({ close, onPick }: PanelProps & { onPick?: (ref: AssetRef) => void }) {
+ *  imported photo another way (e.g. as the page background) instead of adding it to the page. `drag` lets
+ *  the asset library drop a result on the canvas at the point it was released. */
+export function StockTab({ close, onPick, drag = false }: PanelProps & { onPick?: (ref: AssetRef) => void; drag?: boolean }) {
   const editor = useEditor()
   const stock = editor.adapter.services.stock
   const [info, setInfo] = useState<StockProviders | null>(null)
+  const [providersFailed, setProvidersFailed] = useState(false)
   const [source, setSourceState] = useState('')
   const [query, setQuery] = useState('')
   const q = useDebounced(query.trim(), 300)
@@ -53,11 +56,16 @@ export function StockTab({ close, onPick }: PanelProps & { onPick?: (ref: AssetR
     stock.providers().then(
       (found) => {
         if (!live) return
+        setProvidersFailed(false)
         setInfo(found)
         setSourceState(initialSource(found))
       },
       // An older server without the endpoint: search its first provider, as before.
-      () => live && setInfo({ providers: [], all: [], default: '' }),
+      () => {
+        if (!live) return
+        setProvidersFailed(true)
+        setInfo({ providers: [], all: [], default: '' })
+      },
     )
     return () => {
       live = false
@@ -66,6 +74,7 @@ export function StockTab({ close, onPick }: PanelProps & { onPick?: (ref: AssetR
 
   const labels = new Map((info?.providers ?? []).map((p) => [p.name, p.label]))
   const label = (name: string): string => labels.get(name) ?? name
+  const unconfigured = info !== null && info.providers.length === 0 && !providersFailed
   const setSource = (next: string): void => {
     setSourceState(next)
     safeSetItem(STOCK_TAB_KEY, next)
@@ -92,7 +101,7 @@ export function StockTab({ close, onPick }: PanelProps & { onPick?: (ref: AssetR
       }
     },
     list,
-    stock !== null && info !== null,
+    stock !== null && info !== null && !unconfigured,
   )
   const searchId = useId()
   const observer = useRef<IntersectionObserver | null>(null)
@@ -148,8 +157,13 @@ export function StockTab({ close, onPick }: PanelProps & { onPick?: (ref: AssetR
       ) : null}
       <label className={styles.search} htmlFor={searchId}>
         {I.search}
-        <input id={searchId} type="search" value={query} onChange={(e) => setQuery(e.target.value)} placeholder={t.imageDrawer.searchStock} aria-label={t.imageDrawer.searchStock} data-testid="stock-search" />
+        <input id={searchId} type="search" value={query} onChange={(e) => setQuery(e.target.value)} placeholder={t.imageDrawer.searchStock} aria-label={t.imageDrawer.searchStock} data-testid="stock-search" disabled={unconfigured} />
       </label>
+      {unconfigured ? (
+        <p className={styles.note} role="status" data-testid="stock-off">
+          {t.imageDrawer.stockOff}
+        </p>
+      ) : null}
       {notice.skipped.length > 0 && photos.items.length > 0 ? (
         <p className={styles.note} role="status" data-testid="stock-skipped">
           {t.imageDrawer.skipped(skippedNote, t.imageDrawer.listNames(credited.map((p) => p.label)))}
@@ -173,6 +187,18 @@ export function StockTab({ close, onPick }: PanelProps & { onPick?: (ref: AssetR
             aria-label={t.imageDrawer.addPhoto(p.author)}
             title={t.imageDrawer.photoByOn(p.author, label(p.provider))}
             disabled={importing !== null}
+            draggable={drag || undefined}
+            onDragStart={
+              drag
+                ? (e) =>
+                    setAssetDrag(e.dataTransfer, {
+                      kind: 'stock',
+                      provider: p.provider,
+                      id: p.id,
+                      name: t.imageDrawer.photoByOn(p.author, label(p.provider)),
+                    })
+                : undefined
+            }
             onClick={() => void add(p)}
           >
             <img src={p.thumb_url} alt="" loading="lazy" draggable={false} />
@@ -201,7 +227,7 @@ export function StockTab({ close, onPick }: PanelProps & { onPick?: (ref: AssetR
           {failure ?? t.imageDrawer.stockFailed}
         </p>
       ) : null}
-      {!photos.loading && !photos.error && photos.items.length === 0 ? <p className={styles.note}>{t.imageDrawer.stockEmpty}</p> : null}
+      {!unconfigured && !photos.loading && !photos.error && photos.items.length === 0 ? <p className={styles.note}>{t.imageDrawer.stockEmpty}</p> : null}
       {credited.length > 0 && photos.items.length > 0 ? (
         <p className={styles.attribution} data-testid="stock-attribution">
           {credited.map((p, index) => (

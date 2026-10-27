@@ -1,7 +1,7 @@
 #!/bin/sh
 # Fails when a setting is not documented in docs/self-hosting/configuration.md.
 # Settings are collected from both .env.example files, the backend settings and docker-compose.yml.
-# Per-provider stock settings (STOCK_UNSPLASH_RATE, STOCK_PEXELS_VIDEO_RATE, …) count as documented by their
+# Per-provider stock settings (STOCK_UNSPLASH_RATE, STOCK_PIXABAY_VIDEO_RATE, …) count as documented by their
 # STOCK_<PROVIDER>_… row, and AI_PROVIDER_1_URL … by its AI_PROVIDER_<n>_… row.
 # Run from the repository root: sh docs/check-settings.sh   (or: make docs-check)
 set -eu

@@ -1,13 +1,12 @@
-"""Stock-video providers (Pexels and Pixabay videos), next to the photo ones in `providers`.
+"""Stock-video providers (Pixabay videos), next to the photo ones in `providers`.
 
 They reuse everything the photo providers do: each network call goes through `providers` (so the same
 counting, pausing, key redaction and host checks apply), the client only ever names a provider and a clip id,
 and the file to download is resolved from the provider's API and must stay on its video CDN for every hop.
 
-Each one has a key setting of its own (`PEXELS_VIDEO_API_KEY`, `PIXABAY_VIDEO_API_KEY`) that falls back to the
-provider's photo key, so clip searches and photo searches can use separate quotas, and its own rate and cache
-settings under its own name (`STOCK_PEXELS_VIDEO_RATE`, ...). A provider is on when it has a key and
-`STOCK_VIDEO_PROVIDERS` lists it.
+It has a key setting of its own (`PIXABAY_VIDEO_API_KEY`) that falls back to the provider's photo key, so clip
+searches and photo searches can use separate quotas, and its own rate and cache settings under its own name
+(`STOCK_PIXABAY_VIDEO_RATE`, ...). A provider is on when it has a key and `STOCK_VIDEO_PROVIDERS` lists it.
 """
 
 from __future__ import annotations
@@ -20,10 +19,8 @@ from urllib.parse import quote
 from django.conf import settings
 
 from .providers import (
-    _PEXELS_ID,
     _PIXABAY_ID,
     PIXABAY_LANGS,
-    PexelsProvider,
     PixabayProvider,
     ProviderError,
     StockProvider,
@@ -40,7 +37,6 @@ ORIENTATIONS = frozenset({"landscape", "portrait", "square"})
 # Duration filters the editor offers: short (under 15 s), medium (15 to 60 s), long (over a minute).
 DURATIONS = {"short": (0, 15), "medium": (15, 60), "long": (60, None)}
 MAX_SIDE = 1080  # the clip we fetch: the largest rendition whose short side is at most this
-PREVIEW_MIN_SIDE = 360
 # When a filter is applied here rather than by the provider, a page asks for this many times more clips, so a
 # filtered page isn't nearly empty. Paging stays on the provider's pages of that larger size.
 OVERFETCH = 4
@@ -132,91 +128,6 @@ class VideoProvider(StockProvider):
             return check_https_host(url, self.video_hosts) if isinstance(url, str) else None
         except ProviderError:
             return None
-
-
-class PexelsVideoProvider(VideoProvider, PexelsProvider):
-    max_per_page = 80
-    name = "pexels_video"
-    label = "Pexels"
-    attribution = "Videos provided by Pexels"
-    video_hosts = frozenset({"videos.pexels.com"})
-
-    def _key(self) -> str:
-        return settings.PEXELS_VIDEO_API_KEY or settings.PEXELS_API_KEY
-
-    def valid_id(self, video_id: str) -> bool:
-        return _PEXELS_ID.fullmatch(video_id) is not None
-
-    def _files(self, item: dict) -> list[tuple[int, int, str]]:
-        """(short side, long side, link) of each MP4 rendition on the clip CDN."""
-        files = []
-        for entry in item.get("video_files") or []:
-            entry = _dict(entry)
-            link = self._video_link(entry.get("link"))
-            width, height = _as_int(entry.get("width")), _as_int(entry.get("height"))
-            if link and width and height and entry.get("file_type") == "video/mp4":
-                files.append((min(width, height), max(width, height), link))
-        return sorted(files)
-
-    def _video(self, item: object) -> StockVideo | None:
-        if not isinstance(item, dict) or not _is_count(item.get("id")):
-            return None
-        thumb = self._checked(item.get("image"))
-        files = self._files(item)
-        previews = [link for short, _, link in files if short >= PREVIEW_MIN_SIDE] or [f[2] for f in files]
-        if not thumb or not previews:
-            return None
-        user = _dict(item.get("user"))
-        return StockVideo(
-            id=str(item["id"]),
-            provider=self.name,
-            thumb_url=thumb,
-            preview_url=previews[0],
-            width=_as_int(item.get("width")),
-            height=_as_int(item.get("height")),
-            duration_ms=_as_int(item.get("duration")) * 1000,
-            author=_as_str(user.get("name")),
-            author_url=_https_link(user.get("url")),
-            source_url=_https_link(item.get("url")),
-        )
-
-    def search(
-        self, query: str, page: int, per_page: int, options: Mapping[str, str] | None = None
-    ) -> VideoSearchPage:
-        options = options or {}
-        low, high = DURATIONS.get(options.get("duration", ""), (0, None))
-        # Search filters by orientation and the popular list by length; the other one is filtered here.
-        filtered_here = bool(options.get("duration") if query else options.get("orientation"))
-        asked = min(per_page * OVERFETCH, self.max_per_page) if filtered_here else per_page
-        params: dict[str, Any] = {"page": page, "per_page": asked}
-        if query:
-            if options.get("orientation"):
-                params["orientation"] = options["orientation"]
-            data = self._api(f"{self.api}/videos/search", params={**params, "query": query})
-        else:
-            if low:
-                params["min_duration"] = low
-            if high:
-                params["max_duration"] = high
-            data = self._api(f"{self.api}/videos/popular", params=params)
-        if not isinstance(data, dict) or not isinstance(data.get("videos"), list):
-            raise ProviderError("Unexpected provider response.")
-        videos = [v for v in map(self._video, data["videos"]) if v and matches(v, options)]
-        if "total_results" in data:
-            total = _as_int(data["total_results"])
-            return VideoSearchPage(total, _next_page(total, page, asked), videos)
-        more = page + 1 if data.get("next_page") else None
-        return VideoSearchPage((page - 1) * asked + len(data["videos"]), more, videos)
-
-    def resolve(self, video_id: str) -> ResolvedVideo:
-        data = self._api(f"{self.api}/videos/videos/{video_id}")
-        video = self._video(data)
-        if video is None or video.id != video_id:
-            raise ProviderError("Unexpected provider response.")
-        files = self._files(_dict(data))
-        fitting = [f for f in files if f[0] <= MAX_SIDE]
-        chosen = fitting[-1] if fitting else files[0]
-        return ResolvedVideo(video=video, download_url=chosen[2])
 
 
 class PixabayVideoProvider(VideoProvider, PixabayProvider):
@@ -323,9 +234,7 @@ class PixabayVideoProvider(VideoProvider, PixabayProvider):
         return ResolvedVideo(video=video, download_url=chosen[3])
 
 
-VIDEO_PROVIDERS: dict[str, VideoProvider] = {
-    p.name: p for p in (PexelsVideoProvider(), PixabayVideoProvider())
-}
+VIDEO_PROVIDERS: dict[str, VideoProvider] = {p.name: p for p in (PixabayVideoProvider(),)}
 
 
 def _enabled_names() -> list[str]:

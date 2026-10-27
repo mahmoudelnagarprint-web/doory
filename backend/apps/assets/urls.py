@@ -7,6 +7,7 @@ from .audio_stock import (
     AudioStockPreviewView,
     AudioStockSearchView,
 )
+from .local_assets import LocalAssetsView
 from .stock import StockImportView, StockProvidersView, StockSearchView
 from .video_stock import StockVideoImportView, StockVideoProvidersView, StockVideoSearchView
 from .views import AssetViewSet
@@ -16,6 +17,7 @@ router.register("assets", AssetViewSet, basename="asset")
 
 urlpatterns = [
     *router.urls,
+    path("local-assets/", LocalAssetsView.as_view(), name="local-assets"),
     path("stock/photos/", StockSearchView.as_view(), name="stock-photos"),
     path("stock/providers/", StockProvidersView.as_view(), name="stock-providers"),
     path("stock/photos/import/", StockImportView.as_view(), name="stock-photo-import"),

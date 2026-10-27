@@ -43,6 +43,7 @@ import {
   textScale,
 } from '../objects/factories'
 import { primaryFamily } from '../text/fontStack'
+import { slotAtLive } from '../collage/model'
 import { applyCurve } from '../objects/curvedText'
 import { CURVE_DEFAULT_AMOUNT } from '../text/curve'
 import { applyListStyle } from '../text/lists'
@@ -85,7 +86,7 @@ export class InsertApi {
   async add(
     objects: FabricObject[],
     label: string,
-    opts: { announce?: string; edit?: boolean; pageId?: string; commit?: boolean } = {},
+    opts: { announce?: string; edit?: boolean; pageId?: string; commit?: boolean; select?: readonly FabricObject[] } = {},
   ): Promise<void> {
     if (this.engine.readOnly || objects.length === 0) return
     const pageId = opts.pageId ?? this.engine.state.activePageId
@@ -95,7 +96,7 @@ export class InsertApi {
       view.configure(o)
       view.canvas.add(o)
     }
-    view.selectObjects(objects)
+    view.selectObjects(opts.select ? [...opts.select] : objects)
     if (opts.edit && objects[0] instanceof IText) {
       const text = objects[0]
       text.enterEditing()
@@ -243,6 +244,15 @@ export class InsertApi {
 
   async imageFromAsset(ref: AssetRef, at?: { x: number; y: number }, pageId?: string): Promise<void> {
     const target = pageId ?? this.engine.state.activePageId
+    // A photo dropped on a frame fills that frame; one dropped on a filled frame replaces its picture.
+    if (at) {
+      const view = this.engine.viewOf(target)
+      const hit = view ? slotAtLive(view.canvas.getObjects(), at) : undefined
+      if (hit) {
+        await this.engine.collage.replaceSlotWithAsset(target, hit.id, ref)
+        return
+      }
+    }
     try {
       const url = await this.engine.assets.resolve(ref.url)
       const img = await createImage({ src: ref.url, url, assetId: ref.id }, at ?? this.center(), this.fitFor(target))
@@ -313,10 +323,11 @@ export class InsertApi {
   }
 
   /** Inserts SVG markup as an element group. Works with no server (used by built-in packs). */
-  async svgElement(svgText: string, elementId: string, name: string): Promise<void> {
-    const page = this.engine.pageSizeOf(this.engine.state.activePageId)
-    const obj = await createElementFromSvg(svgText, this.center(), stickerSize(page), { elementId, name })
-    await this.add([obj], `Add ${name}`)
+  async svgElement(svgText: string, elementId: string, name: string, at?: { x: number; y: number }, pageId?: string): Promise<void> {
+    const target = pageId ?? this.engine.state.activePageId
+    const page = this.engine.pageSizeOf(target)
+    const obj = await createElementFromSvg(svgText, at ?? this.center(), stickerSize(page), { elementId, name })
+    await this.add([obj], `Add ${name}`, { pageId: target })
   }
 
   /* --------------------------------------------------------------- misc kinds */
@@ -326,10 +337,14 @@ export class InsertApi {
     await this.add([await createQrCode(spec, this.center(), Math.round(defaultShapeSize(page) * 0.8))], t.history.addQrCode)
   }
 
-  async placeholder(mask?: MaskShape): Promise<void> {
-    const page = this.engine.pageSizeOf(this.engine.state.activePageId)
+  async placeholder(mask?: MaskShape, at?: { x: number; y: number }, pageId?: string): Promise<void> {
+    const target = pageId ?? this.engine.state.activePageId
+    const page = this.engine.pageSizeOf(target)
     const size = defaultShapeSize(page)
-    await this.add([createPlaceholder(this.center(), size * 1.2, size, mask)], t.history.addImagePlaceholder)
+    const loc = at ?? this.center()
+    const width = mask === 'circle' ? size : Math.round(size * 1.2)
+    const height = size
+    await this.add([createPlaceholder(loc, width, height, mask)], t.history.addImagePlaceholder, { pageId: target })
   }
 
   /**
@@ -420,6 +435,7 @@ export class InsertApi {
     const d = asDory(img)
     d.id = pd.id
     d.slot = slot
+    d.collage = pd.collage
     d.name = pd.name && pd.name !== t.history.imagePlaceholder ? pd.name : ref.name
     d.field = pd.field
     d.locked = pd.locked

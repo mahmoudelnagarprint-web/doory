@@ -122,6 +122,8 @@ export class PageCanvas {
   private pendingRemote = 0
   /** Objects whose text somebody else is editing right now. */
   private editLocks: ReadonlySet<string> = new Set()
+  /** Debounces the history step after a run of wheel-zooms inside a photo slot. */
+  private slotZoomTimer: number | undefined
 
   constructor(
     private readonly host: PageCanvasHost,
@@ -441,6 +443,10 @@ export class PageCanvas {
     ensureId(obj)
     if (obj instanceof IText) obj.editable = !this.editLocks.has(asDory(obj).id ?? '')
     obj.set(selectionStyle(this.host.theme))
+    // Collage mats and inner rings are document objects (they export), but never things the user selects.
+    if (asDory(obj).collage?.role) {
+      obj.set({ selectable: false, evented: false, hasControls: false, hasBorders: false, lockMovementX: true, lockMovementY: true, lockRotation: true, hoverCursor: 'default' })
+    }
     if (this.host.readOnly) {
       obj.selectable = false
       obj.evented = false
@@ -554,6 +560,27 @@ export class PageCanvas {
     }
 
     on('mouse:down:before', () => host.onPointerActivate(pid))
+
+    // A wheel over the selected photo slot zooms the photo inside its frame (the frame never moves).
+    // Ctrl/Cmd + wheel is left to the workspace's canvas zoom.
+    on('mouse:wheel', (e) => {
+      if (host.readOnly || e.e.ctrlKey || e.e.metaKey) return
+      const object = e.target
+      if (!object || !asDory(object).slot || !this.selectedObjects().includes(object)) return
+      e.e.preventDefault()
+      e.e.stopPropagation()
+      const factor = Math.pow(0.999, e.e.deltaY)
+      object.set({ scaleX: object.scaleX * factor, scaleY: object.scaleY * factor })
+      clampSlotImage(object)
+      object.set('dirty', true)
+      c.requestRenderAll()
+      host.onSelectionLive(pid)
+      if (this.slotZoomTimer) window.clearTimeout(this.slotZoomTimer)
+      this.slotZoomTimer = window.setTimeout(() => {
+        this.slotZoomTimer = undefined
+        if (!this.disposed) host.onCommit(pid, { label: 'Zoom collage photo', coalesceKey: 'collage:wheel-zoom' })
+      }, 260)
+    })
 
     on('selection:created', () => !this.suppress && host.onSelectionChange(pid))
     on('selection:updated', () => !this.suppress && host.onSelectionChange(pid))
@@ -1151,6 +1178,8 @@ export class PageCanvas {
   dispose(): void {
     if (this.disposed) return
     this.disposed = true
+    if (this.slotZoomTimer) window.clearTimeout(this.slotZoomTimer)
+    this.slotZoomTimer = undefined
     for (const off of this.cleanups) off()
     this.cleanups = []
     this.dragCache.end()

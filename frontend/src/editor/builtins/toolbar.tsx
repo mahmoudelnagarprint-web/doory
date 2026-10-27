@@ -2,6 +2,7 @@ import { registerToolbarSection } from '../toolbar/registry'
 import { ActionsSection, AlignSection, FlipRotateSection, GroupSection, MultiSection, ZOrderSection } from '../toolbar/sections/common'
 import { elementColors, onlyKind } from '../toolbar/kinds'
 import { CropSection } from '../toolbar/sections/crop'
+import { CutLineSection } from '../toolbar/sections/cutline'
 import { ImageSection } from '../toolbar/sections/image'
 import { PageSection } from '../toolbar/sections/page'
 import { ElementSection, LineSection, PlaceholderSection, QrSection, ShapeSection } from '../toolbar/sections/shapes'
@@ -25,6 +26,7 @@ export function registerBuiltinToolbarSections(): void {
   registerToolbarSection({ id: 'shape', order: 10, appliesTo: (sel) => onlyKind(sel.kinds, 'shape') && sel.ids.length === 1, component: ShapeSection })
   registerToolbarSection({ id: 'line', order: 10, appliesTo: (sel) => onlyKind(sel.kinds, 'line') && sel.ids.length === 1, component: LineSection })
   registerToolbarSection({ id: 'image', order: 10, appliesTo: (sel) => onlyKind(sel.kinds, 'image') && sel.ids.length === 1, component: ImageSection })
+  registerToolbarSection({ id: 'cutline', order: 20, appliesTo: (sel) => sel.ids.length === 1 && !sel.locked && (onlyKind(sel.kinds, 'image') || onlyKind(sel.kinds, 'element')), component: CutLineSection })
   registerToolbarSection({ id: 'video', order: 10, appliesTo: (sel) => onlyKind(sel.kinds, 'video') && sel.ids.length === 1, component: ClipSection })
   registerToolbarSection({ id: 'element', order: 10, appliesTo: (sel) => onlyKind(sel.kinds, 'element') && sel.ids.length === 1 && elementColors(sel.objects[0]).length > 0, component: ElementSection })
   registerToolbarSection({ id: 'qr', order: 10, appliesTo: (sel) => onlyKind(sel.kinds, 'qr'), component: QrSection })

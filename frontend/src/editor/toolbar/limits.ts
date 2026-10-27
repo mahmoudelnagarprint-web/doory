@@ -30,6 +30,8 @@ export const POLYGON_SIDES: Limit = { min: 3, max: 12, step: 1, decimals: 0 }
 export const STAR_POINTS: Limit = { min: 3, max: 16, step: 1, decimals: 0 }
 /** Percent of the outer radius. */
 export const STAR_INNER_RATIO: Limit = { min: 10, max: 90, step: 1, decimals: 0 }
+/** Bleed around a traced cut line, in millimetres. */
+export const CUT_LINE_OFFSET: Limit = { min: 0, max: 25, step: 0.5, decimals: 1 }
 
 /** `limit` with its maximum lowered to `max` (never below its minimum). */
 export function capLimit(limit: Limit, max: number): Limit {

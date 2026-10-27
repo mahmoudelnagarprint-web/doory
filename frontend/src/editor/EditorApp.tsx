@@ -1,4 +1,4 @@
-import { forwardRef, useCallback, useEffect, useImperativeHandle, useRef, useState } from 'react'
+import { forwardRef, useCallback, useEffect, useImperativeHandle, useRef, useState, useSyncExternalStore } from 'react'
 import type { EditorAppProps, EditorHandle } from '@/types/adapter'
 import './builtins/commands'
 import './builtins/audio'
@@ -62,6 +62,7 @@ export const EditorApp = forwardRef<EditorHandle, EditorAppProps>(function Edito
   const [session, setSession] = useState<CollabSession | null>(null)
   const [liveEpoch, setLiveEpoch] = useState(0)
   const realtime = adapter.realtime ?? null
+  const atelier = useSyncExternalStore(engine.store.subscribe, () => engine.state.ui.panelId === 'collage')
 
   useImperativeHandle(
     ref,
@@ -157,15 +158,19 @@ export const EditorApp = forwardRef<EditorHandle, EditorAppProps>(function Edito
   useKeyboardShortcuts(engine, rootRef)
   useClipboardEvents(engine, rootRef)
 
-  const setRootEl = useCallback((el: HTMLDivElement | null) => {
-    rootRef.current = el
-    setRoot(el)
-  }, [])
+  const setRootEl = useCallback(
+    (el: HTMLDivElement | null) => {
+      rootRef.current = el
+      setRoot(el)
+      engine.setThemeRoot(el)
+    },
+    [engine],
+  )
 
   const onTitle = (title: string): void => latest.current.onTitleChange?.(title)
 
   return (
-    <div ref={setRootEl} className={styles.root} data-editor-root aria-label={t.appLabel} role="application">
+    <div ref={setRootEl} className={styles.root} data-editor-root data-collage-studio={atelier ? 'atelier' : undefined} aria-label={t.appLabel} role="application">
       <EditorProvider engine={engine} portalRoot={root} collab={session}>
         <ChromeProvider>
           <TopBar start={topBarStart} end={topBarEnd} onTitle={onTitle} onPresent={() => engine.openDialog('presenter')} />

@@ -78,6 +78,14 @@ add a row to the matching section (see [CONTRIBUTING.md](../../CONTRIBUTING.md#d
 | `MAX_DESIGNS_PER_USER` | `5000` | Designs per user |
 | `MAX_API_TOKENS_PER_USER` | `20` | MCP tokens per user |
 
+## Asset library
+
+| Setting | Default | What it does |
+|---------|---------|--------------|
+| `LOCAL_ASSETS_DIR` | `frontend/public/assets/premium_stickers` | Folder scanned recursively for the SVG/PNG files the editor's **My assets** tab lists. A relative path starts from the folder Django runs in (`backend/`). A missing folder hides the tab; the API container needs the folder mounted or copied to use it |
+| `LOCAL_ASSETS_URL` | `/assets/premium_stickers/` | Public URL the web server serves the folder at; the endpoint returns it with each file |
+| `LOCAL_ASSETS_MAX_FILES` | `2000` | Most files one scan returns; a larger folder is reported as `truncated` |
+
 ## First-run content
 
 See [content.md](content.md) for what each option installs and how long it takes.
@@ -206,24 +214,22 @@ See [stock-media.md](../integrations/stock-media.md).
 | Setting | Default | What it does |
 |---------|---------|--------------|
 | `UNSPLASH_ACCESS_KEY` | | API key for the `unsplash` provider |
-| `PEXELS_API_KEY` | | API key for the `pexels` provider |
 | `PIXABAY_API_KEY` | | API key for the `pixabay` provider |
-| `PEXELS_VIDEO_API_KEY` | `PEXELS_API_KEY` | API key for the `pexels_video` provider (stock videos), so clip searches have a quota of their own |
 | `PIXABAY_VIDEO_API_KEY` | `PIXABAY_API_KEY` | API key for the `pixabay_video` provider (stock videos) |
-| `STOCK_VIDEO_PROVIDERS` | `pexels_video,pixabay_video` | Video providers to offer, in tab order. A provider appears only when it has a key and the server [takes video](video.md) |
-| `STOCK_PROVIDERS` | `unsplash,pexels,pixabay` | Providers to offer, in tab order. A provider appears only when its key is set |
+| `STOCK_VIDEO_PROVIDERS` | `pixabay_video` | Video providers to offer, in tab order. A provider appears only when it has a key and the server [takes video](video.md) |
+| `STOCK_PROVIDERS` | `unsplash,pixabay` | Providers to offer, in tab order. A provider appears only when its key is set |
 | `STOCK_ALL_PROVIDERS` | all of them | Providers the "All" tab searches |
 | `STOCK_ALL_TIMEOUT_SECONDS` | `4` | How long the "All" tab waits for each provider |
 | `STOCK_DEFAULT_TAB` | `all` | Tab that opens first: `all` or a provider name |
 | `STOCK_LANG_FROM_UI` | `true` | Search in the interface language, where the provider supports it |
 | `STOCK_PIXABAY_IMAGE_TYPE` | `photo` | `photo`, `illustration`, `vector` or `all` |
-| `STOCK_<PROVIDER>_RATE` | `60/m` for freesound, `200/h` for pexels_video | Limit on calls per API key across all users, e.g. `5000/h` or `100/m`. Without it, a provider is paused only when it answers 429 |
+| `STOCK_<PROVIDER>_RATE` | `60/m` for freesound | Limit on calls per API key across all users, e.g. `5000/h` or `100/m`. Without it, a provider is paused only when it answers 429 |
 | `STOCK_<PROVIDER>_CACHE_SECONDS` | `3600` (`86400` for pixabay, pixabay_video and freesound) | How long search results are cached |
 | `STOCK_<PROVIDER>_SAFESEARCH` | off for unsplash, on for the others | Ask the provider to filter out unsafe results |
 | `FREESOUND_API_KEY` | | API key for the Freesound tab in the Audio tool |
 | `FREESOUND_LICENSES` | `cc0` | Licences to offer: `cc0`, or `cc0,by` to also allow CC BY (the editor then lists the credits to publish). Freesound's API terms cover non-commercial use; a commercial service needs an agreement with Freesound first |
 
-`<PROVIDER>` is the provider's name in capitals, e.g. `STOCK_PEXELS_RATE`, `STOCK_PEXELS_VIDEO_RATE` or `STOCK_FREESOUND_RATE`. Limits and caching only work across
+`<PROVIDER>` is the provider's name in capitals, e.g. `STOCK_UNSPLASH_RATE`, `STOCK_PIXABAY_VIDEO_RATE` or `STOCK_FREESOUND_RATE`. Limits and caching only work across
 workers when they share a cache (`CACHE_URL`).
 
 ## AI image providers

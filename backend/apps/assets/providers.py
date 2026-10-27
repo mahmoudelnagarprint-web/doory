@@ -34,7 +34,6 @@ UTM = {"utm_source": "doory", "utm_medium": "referral"}
 _REDIRECT_CODES = frozenset({301, 302, 303, 307, 308})
 _UNSAFE_URL_CHARS = re.compile(r"[\x00-\x20\x7f-\uffff\\]")
 _UNSPLASH_ID = re.compile(r"[A-Za-z0-9_-]{5,40}")
-_PEXELS_ID = re.compile(r"[0-9]{1,12}")
 _PIXABAY_ID = re.compile(r"[0-9]{1,12}")
 _KEY_IN_URL = re.compile(r"([?&]key=)[^&\s\"']+")
 
@@ -226,7 +225,7 @@ class StockProvider(ABC):
     def config(self) -> stocklimits.StockConfig:
         return stocklimits.config_for(self.name)
 
-    def search_options(self, lang: str = "") -> dict[str, str]:
+    def search_options(self, lang: str = "", filters: dict[str, str] | None = None) -> dict[str, str]:
         """Settings that change what a search returns; part of the search cache key."""
         return {}
 
@@ -311,7 +310,7 @@ class UnsplashProvider(StockProvider):
     def valid_id(self, photo_id: str) -> bool:
         return _UNSPLASH_ID.fullmatch(photo_id) is not None
 
-    def search_options(self, lang: str = "") -> dict[str, str]:
+    def search_options(self, lang: str = "", filters: dict[str, str] | None = None) -> dict[str, str]:
         # Off sends nothing, exactly the request Doory made before the setting existed.
         return {"content_filter": "high"} if self.config.safesearch else {}
 
@@ -375,76 +374,7 @@ class UnsplashProvider(StockProvider):
         return ResolvedPhoto(photo=photo, download_url=download, track_url=track_url)
 
 
-class PexelsProvider(StockProvider):
-    name = "pexels"
-    label = "Pexels"
-    attribution = "Photos provided by Pexels"
-    home_url = "https://www.pexels.com/"
-    image_hosts = frozenset({"images.pexels.com"})
-    api = "https://api.pexels.com/v1"
-
-    def _key(self) -> str:
-        return settings.PEXELS_API_KEY
-
-    def _headers(self) -> dict[str, str]:
-        return {"Authorization": self._key()}
-
-    def valid_id(self, photo_id: str) -> bool:
-        return _PEXELS_ID.fullmatch(photo_id) is not None
-
-    def _reset_seconds(self, headers: Mapping[str, str]) -> float | None:
-        reset = _seconds(headers.get("X-RateLimit-Reset"))  # the Unix time the monthly quota renews
-        return reset - time.time() if reset and reset > time.time() else None
-
-    def _photo(self, item: object) -> StockPhoto | None:
-        if not isinstance(item, dict) or not _is_count(item.get("id")):
-            return None
-        src = _dict(item.get("src"))
-        thumb, preview = self._checked(src.get("medium")), self._checked(src.get("large"))
-        if not thumb or not preview:
-            return None
-        return StockPhoto(
-            id=str(item["id"]),
-            provider=self.name,
-            thumb_url=thumb,
-            preview_url=preview,
-            width=_as_int(item.get("width")),
-            height=_as_int(item.get("height")),
-            author=_as_str(item.get("photographer")),
-            author_url=_https_link(item.get("photographer_url")),
-            source_url=_https_link(item.get("url")),
-        )
-
-    def search(
-        self, query: str, page: int, per_page: int, options: Mapping[str, str] | None = None
-    ) -> SearchPage:
-        params: dict[str, Any] = {"page": page, "per_page": per_page}
-        if query:
-            data = self._api(f"{self.api}/search", params={**params, "query": query})
-        else:
-            data = self._api(f"{self.api}/curated", params=params)
-        if not isinstance(data, dict) or not isinstance(data.get("photos"), list):
-            raise ProviderError("Unexpected provider response.")
-        photos = [photo for photo in map(self._photo, data["photos"]) if photo]
-        if "total_results" in data:
-            total = _as_int(data["total_results"])
-            return SearchPage(total, _next_page(total, page, per_page), photos)
-        more = page + 1 if data.get("next_page") else None
-        return SearchPage((page - 1) * per_page + len(data["photos"]), more, photos)
-
-    def resolve(self, photo_id: str) -> ResolvedPhoto:
-        data = self._api(f"{self.api}/photos/{photo_id}")
-        photo = self._photo(data)
-        if photo is None:
-            raise ProviderError("Unexpected provider response.")
-        src = _dict(data.get("src"))
-        download = self._checked(src.get("large2x")) or self._checked(src.get("original"))
-        if not download:
-            raise ProviderError("The provider gave no downloadable image.")
-        return ResolvedPhoto(photo=photo, download_url=download)
-
-
-PIXABAY_IMAGE_TYPES = frozenset({"photo", "illustration", "vector", "all"})
+PIXABAY_IMAGE_TYPES = frozenset({"photo", "illustration", "vector", "all", "vector,illustration", "illustration,vector"})
 PIXABAY_LANGS = frozenset(
     [
         "cs",
@@ -505,8 +435,8 @@ class PixabayProvider(StockProvider):
     def _reset_seconds(self, headers: Mapping[str, str]) -> float | None:
         return _seconds(headers.get("X-RateLimit-Reset"))  # seconds left in the 60 s window
 
-    def search_options(self, lang: str = "") -> dict[str, str]:
-        image_type = settings.STOCK_PIXABAY_IMAGE_TYPE
+    def search_options(self, lang: str = "", filters: dict[str, str] | None = None) -> dict[str, str]:
+        image_type = (filters or {}).get("image_type") or settings.STOCK_PIXABAY_IMAGE_TYPE
         use_lang = settings.STOCK_LANG_FROM_UI and lang in PIXABAY_LANGS
         return {
             "image_type": image_type if image_type in PIXABAY_IMAGE_TYPES else "photo",
@@ -582,9 +512,7 @@ class PixabayProvider(StockProvider):
         return ResolvedPhoto(photo=photo, download_url=download)
 
 
-PROVIDERS: dict[str, StockProvider] = {
-    p.name: p for p in (UnsplashProvider(), PexelsProvider(), PixabayProvider())
-}
+PROVIDERS: dict[str, StockProvider] = {p.name: p for p in (UnsplashProvider(), PixabayProvider())}
 
 
 def _enabled_names() -> list[str]:

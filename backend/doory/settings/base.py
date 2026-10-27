@@ -104,6 +104,14 @@ STATIC_ROOT = BASE_DIR / "staticfiles"
 MEDIA_URL = "/media/"
 MEDIA_ROOT = Path(env("MEDIA_ROOT", default=str(BASE_DIR / "media")))
 
+# Premium stickers the editor's asset library lists. The folder is served as static files by the
+# frontend (Vite in development, nginx in production), not by Django media storage.
+LOCAL_ASSETS_DIR = env(
+    "LOCAL_ASSETS_DIR", default=str(BASE_DIR.parent / "frontend" / "public" / "assets" / "premium_stickers")
+)
+LOCAL_ASSETS_URL = env("LOCAL_ASSETS_URL", default="/assets/premium_stickers/")
+LOCAL_ASSETS_MAX_FILES = env.int("LOCAL_ASSETS_MAX_FILES", default=2000)
+
 STORAGES = {
     "default": {"BACKEND": "django.core.files.storage.FileSystemStorage"},
     "staticfiles": {"BACKEND": "whitenoise.storage.CompressedManifestStaticFilesStorage"},
@@ -192,11 +200,9 @@ OIDC_BUTTON_ICON = env("OIDC_BUTTON_ICON", default="")
 OIDC_SCOPES = env("OIDC_SCOPES", default="openid email profile")
 OIDC_TRUST_EMAIL = env.bool("OIDC_TRUST_EMAIL", default=False)
 UNSPLASH_ACCESS_KEY = env("UNSPLASH_ACCESS_KEY", default="")
-PEXELS_API_KEY = env("PEXELS_API_KEY", default="")
 PIXABAY_API_KEY = env("PIXABAY_API_KEY", default="")
-# Stock videos use keys of their own, so clip searches and photo searches don't share one quota; each falls
+# Stock videos use a key of their own, so clip searches and photo searches don't share one quota; it falls
 # back to the photo key of the same provider.
-PEXELS_VIDEO_API_KEY = env("PEXELS_VIDEO_API_KEY", default="")
 PIXABAY_VIDEO_API_KEY = env("PIXABAY_VIDEO_API_KEY", default="")
 # Freesound (apps.assets.freesound): the Audio tool's Freesound tab is on when the key is set. Licences a
 # sound may have: cc0 (default), or cc0,by to add Creative Commons Attribution (the editor asks for credits).
@@ -207,7 +213,7 @@ FREESOUND_LICENSES = env.list("FREESOUND_LICENSES", default=["cc0"])
 # ---- Stock photos (apps.assets.stock). A provider is on when its key is set and it is listed here; the
 # order is the order of the tabs. The per-key limits and cache times only hold across workers with a shared
 # cache (CACHE_URL=redis://… or dbcache://…). ----
-STOCK_PROVIDERS = env.list("STOCK_PROVIDERS", default=["unsplash", "pexels", "pixabay"])
+STOCK_PROVIDERS = env.list("STOCK_PROVIDERS", default=["unsplash", "pixabay"])
 STOCK_ALL_PROVIDERS = env.list("STOCK_ALL_PROVIDERS", default=[])  # searched by the "All" tab; empty: all
 STOCK_ALL_TIMEOUT_SECONDS = env.float("STOCK_ALL_TIMEOUT_SECONDS", default=4.0)
 STOCK_DEFAULT_TAB = env("STOCK_DEFAULT_TAB", default="all")  # "all" or a provider name
@@ -215,21 +221,18 @@ STOCK_LANG_FROM_UI = env.bool("STOCK_LANG_FROM_UI", default=True)
 # photo, illustration, vector or all
 STOCK_PIXABAY_IMAGE_TYPE = env("STOCK_PIXABAY_IMAGE_TYPE", default="photo")
 # Stock videos (apps.assets.video_stock): on when the provider has a key and is listed here, in tab order.
-STOCK_VIDEO_PROVIDERS = env.list("STOCK_VIDEO_PROVIDERS", default=["pexels_video", "pixabay_video"])
+STOCK_VIDEO_PROVIDERS = env.list("STOCK_VIDEO_PROVIDERS", default=["pixabay_video"])
 # Per provider: search cache time; calls allowed per API key, all users together ("100/m", "5000/h"; empty: no
 # cap of our own, Doory still pauses a provider when it answers 429 or reports its quota used up); safe search
 # (Unsplash: content_filter=high; Pixabay: safesearch). Unsplash keeps its previous unfiltered default.
 _STOCK_DEFAULTS = {
     "unsplash": (3600, False),
-    "pexels": (3600, True),
     "pixabay": (86400, True),
     "freesound": (86400, False),
-    "pexels_video": (3600, True),
     "pixabay_video": (86400, True),  # Pixabay asks for results to be cached for 24 h
 }
 _STOCK_RATES = {
     "freesound": "60/m",  # Freesound allows 60 calls a minute (and 2000 a day) per key
-    "pexels_video": "200/h",  # Pexels' free key: 200 an hour (and 20,000 a month)
 }
 STOCK_PROVIDER_SETTINGS = {
     name: {

@@ -1,4 +1,4 @@
-"""`/stock/` — search and import photos from the configured providers (Unsplash, Pexels, Pixabay).
+"""`/stock/` — search and import photos from the configured providers (Unsplash, Pixabay).
 
 Searches are cached per provider (its own cache time), with a stale copy kept twice as long that is served,
 marked `stale`, when the provider fails or is over its limit. A short lock makes a burst of identical
@@ -53,6 +53,7 @@ class StockSearchSerializer(serializers.Serializer):
         max_length=300, required=False, help_text="`next_page` of an `all` search."
     )
     lang = serializers.RegexField(r"^[A-Za-z]{2}([-_][A-Za-z0-9]{1,8})*$", max_length=35, required=False)
+    image_type = serializers.CharField(max_length=60, required=False, allow_blank=True)
 
 
 class StockImportSerializer(serializers.Serializer):
@@ -255,6 +256,7 @@ def search(
     per_page: int = DEFAULT_PER_PAGE,
     lang: str = "",
     cursor: str | None = None,
+    filters: dict[str, str] | None = None,
 ) -> dict[str, Any]:
     """One page of stock photos, cached per provider. `requested_provider="all"` mixes the "All" tab's
     providers (paged by `cursor`). Raises `StockBusy` or `StockUnavailable` when nothing can be served."""
@@ -273,7 +275,7 @@ def search(
     if provider is None:
         return _not_configured(requested_provider or "")
     try:
-        return cached_search(provider, query, page, per_page, lang)
+        return cached_search(provider, query, page, per_page, lang, filters=filters)
     except providers.ProviderBusy as exc:
         raise StockBusy(wait=exc.retry_after) from exc
     except providers.ProviderError as exc:
@@ -289,6 +291,7 @@ class StockSearchView(APIView):
         params = StockSearchSerializer(data=request.query_params)
         params.is_valid(raise_exception=True)
         data = params.validated_data
+        filters = {"image_type": data["image_type"]} if data.get("image_type") else None
         payload = search(
             data.get("provider"),
             data.get("q", ""),
@@ -296,6 +299,7 @@ class StockSearchView(APIView):
             data.get("per_page", DEFAULT_PER_PAGE),
             data.get("lang", ""),
             data.get("cursor"),
+            filters=filters,
         )
         return Response(payload)
 

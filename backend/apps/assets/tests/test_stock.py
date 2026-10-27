@@ -68,13 +68,6 @@ def net(monkeypatch):
 @pytest.fixture
 def unsplash(settings):
     settings.UNSPLASH_ACCESS_KEY = "unsplash-secret"
-    settings.PEXELS_API_KEY = ""
-
-
-@pytest.fixture
-def pexels(settings):
-    settings.UNSPLASH_ACCESS_KEY = ""
-    settings.PEXELS_API_KEY = "pexels-secret"
 
 
 def unsplash_item(photo_id=UNSPLASH_ID, **overrides):
@@ -97,25 +90,6 @@ def unsplash_item(photo_id=UNSPLASH_ID, **overrides):
     return item
 
 
-def pexels_item(photo_id=77, **overrides):
-    item = {
-        "id": photo_id,
-        "width": 3000,
-        "height": 2000,
-        "url": f"https://www.pexels.com/photo/{photo_id}/",
-        "photographer": "Grace Hopper",
-        "photographer_url": "https://www.pexels.com/@grace",
-        "src": {
-            "original": f"https://images.pexels.com/photos/{photo_id}/original.jpeg",
-            "large2x": f"https://images.pexels.com/photos/{photo_id}/large2x.jpeg",
-            "large": f"https://images.pexels.com/photos/{photo_id}/large.jpeg",
-            "medium": f"https://images.pexels.com/photos/{photo_id}/medium.jpeg",
-        },
-    }
-    item.update(overrides)
-    return item
-
-
 def unsplash_search_url():
     return "https://api.unsplash.com/search/photos"
 
@@ -123,7 +97,7 @@ def unsplash_search_url():
 @pytest.mark.django_db
 class TestSearch:
     def test_not_configured_returns_empty_page(self, api, settings, net):
-        settings.UNSPLASH_ACCESS_KEY = settings.PEXELS_API_KEY = ""
+        settings.UNSPLASH_ACCESS_KEY = settings.PIXABAY_API_KEY = ""
         res = api.get(SEARCH, {"q": "cat"})
         assert res.status_code == 200
         assert res.json() == {
@@ -164,42 +138,14 @@ class TestSearch:
         body = api.get(SEARCH, {"per_page": 1}).json()
         assert len(body["results"]) == 1 and body["next_page"] == 2
 
-    def test_pexels_search(self, api, pexels, net):
-        net.add(
-            "https://api.pexels.com/v1/search",
-            FakeResponse(payload={"total_results": 100, "photos": [pexels_item()]}),
-        )
-        body = api.get(SEARCH, {"q": "sea"}).json()
-        assert body["provider"] == "pexels" and body["next_page"] == 2
-        assert body["results"][0]["id"] == "77" and body["results"][0]["author"] == "Grace Hopper"
-        assert net.calls[0]["headers"]["Authorization"] == "pexels-secret"
-
-    def test_pexels_curated_without_query(self, api, pexels, net):
-        net.add(
-            "https://api.pexels.com/v1/curated",
-            FakeResponse(
-                payload={"photos": [pexels_item()], "next_page": "https://api.pexels.com/v1/curated?page=2"}
-            ),
-        )
-        body = api.get(SEARCH).json()
-        assert len(body["results"]) == 1 and body["next_page"] == 2
-
-    def test_provider_param_selects_provider(self, api, settings, net):
-        settings.UNSPLASH_ACCESS_KEY, settings.PEXELS_API_KEY = "u", "p"
-        net.add(
-            "https://api.pexels.com/v1/search",
-            FakeResponse(payload={"total_results": 1, "photos": [pexels_item()]}),
-        )
-        assert api.get(SEARCH, {"q": "x", "provider": "pexels"}).json()["provider"] == "pexels"
-
     def test_first_configured_provider_is_default(self, api, settings, net):
-        settings.UNSPLASH_ACCESS_KEY, settings.PEXELS_API_KEY = "u", "p"
+        settings.UNSPLASH_ACCESS_KEY = "u"
         net.add(unsplash_search_url(), FakeResponse(payload={"total": 1, "results": [unsplash_item()]}))
         assert api.get(SEARCH, {"q": "x"}).json()["provider"] == "unsplash"
 
     def test_unconfigured_requested_provider(self, api, unsplash, net):
-        body = api.get(SEARCH, {"q": "x", "provider": "pexels"}).json()
-        assert body["configured"] is False and body["provider"] == "pexels" and net.calls == []
+        body = api.get(SEARCH, {"q": "x", "provider": "pixabay"}).json()
+        assert body["configured"] is False and body["provider"] == "pixabay" and net.calls == []
 
     def test_unknown_provider_is_a_400(self, api, unsplash):
         assert api.get(SEARCH, {"provider": "evil"}).status_code == 400
@@ -344,15 +290,8 @@ class TestImport:
         b = other_api.post(IMPORT, {"provider": "unsplash", "id": UNSPLASH_ID}, format="json").json()
         assert a["id"] != b["id"] and Asset.objects.count() == 2
 
-    def test_pexels_import(self, api, pexels, net):
-        net.add("https://api.pexels.com/v1/photos/77", FakeResponse(payload=pexels_item()))
-        image = image_bytes("JPEG", (50, 50))
-        net.add("https://images.pexels.com/photos/77/large2x.jpeg", FakeResponse(body=image))
-        res = api.post(IMPORT, {"provider": "pexels", "id": "77"}, format="json")
-        assert res.status_code == 201 and res.json()["attribution"]["author"] == "Grace Hopper"
-
     def test_not_configured(self, api, settings, net):
-        settings.UNSPLASH_ACCESS_KEY = settings.PEXELS_API_KEY = ""
+        settings.UNSPLASH_ACCESS_KEY = settings.PIXABAY_API_KEY = ""
         res = api.post(IMPORT, {"provider": "unsplash", "id": UNSPLASH_ID}, format="json")
         assert res.status_code == 400 and res.json()["error"]["code"] == "stock_not_configured"
 
@@ -371,10 +310,6 @@ class TestImport:
     def test_invalid_requests(self, api, unsplash, net, body):
         assert api.post(IMPORT, body, format="json").status_code == 400
         assert net.calls == []
-
-    def test_pexels_ids_must_be_numeric(self, api, pexels, net):
-        assert api.post(IMPORT, {"provider": "pexels", "id": "12ab"}, format="json").status_code == 400
-        assert api.post(IMPORT, {"provider": "pexels", "id": "١٢٣"}, format="json").status_code == 400
 
     def test_client_cannot_supply_a_url(self, api, unsplash, net):
         stub_unsplash_import(net)
@@ -426,7 +361,7 @@ class TestImport:
             "file:///etc/passwd",
             "//evil.example/a.jpg",
             "https://127.0.0.1/a.jpg",
-            "https://images.pexels.com/a.jpg",
+            "https://cdn.example.com/a.jpg",
             "https://images.unsplash.com\\@evil.example/a.jpg",
             "https://evil.example\\@images.unsplash.com/a.jpg",
             "https://images.unsplash.com/a b.jpg",

@@ -14,12 +14,11 @@ from apps.assets import providers, stock, stocklimits
 from apps.assets.models import Asset
 
 from .helpers import image_bytes
-from .test_stock import IMPORT, SEARCH, FakeNetwork, FakeResponse, pexels_item, unsplash_item
+from .test_stock import IMPORT, SEARCH, FakeNetwork, FakeResponse, unsplash_item
 
 PROVIDERS_URL = "/api/v1/stock/providers/"
 PIXABAY_API = "https://pixabay.com/api/"
 UNSPLASH_SEARCH = "https://api.unsplash.com/search/photos"
-PEXELS_SEARCH = "https://api.pexels.com/v1/search"
 KEY = "pixabay-secret-key-123"
 
 
@@ -32,13 +31,13 @@ def net(monkeypatch):
 
 @pytest.fixture
 def pixabay(settings):
-    settings.UNSPLASH_ACCESS_KEY = settings.PEXELS_API_KEY = ""
+    settings.UNSPLASH_ACCESS_KEY = ""
     settings.PIXABAY_API_KEY = KEY
 
 
 @pytest.fixture
 def every(settings):
-    settings.UNSPLASH_ACCESS_KEY, settings.PEXELS_API_KEY, settings.PIXABAY_API_KEY = "u", "p", KEY
+    settings.UNSPLASH_ACCESS_KEY, settings.PIXABAY_API_KEY = "u", KEY
 
 
 def pixabay_item(photo_id=195893, **overrides):
@@ -312,7 +311,6 @@ class TestConfig:
     def test_defaults(self, settings):
         # No cap of our own unless STOCK_<P>_RATE is set, and Unsplash unfiltered as before.
         assert stocklimits.config_for("unsplash") == stocklimits.StockConfig(3600, "", False)
-        assert stocklimits.config_for("pexels") == stocklimits.StockConfig(3600, "", True)
         assert stocklimits.config_for("pixabay") == stocklimits.StockConfig(86400, "", True)
 
     def test_no_cap_unless_a_rate_is_set(self, db):
@@ -321,7 +319,7 @@ class TestConfig:
     def test_stock_providers_sets_order_and_turns_providers_off(self, every, settings):
         settings.STOCK_PROVIDERS = ["Pixabay", "unsplash", "nope"]
         assert [p.name for p in providers.configured_providers()] == ["pixabay", "unsplash"]
-        assert providers.PROVIDERS["pexels"].configured is False
+        assert providers.PROVIDERS["pixabay"].configured is True
 
 
 @pytest.mark.django_db
@@ -423,17 +421,6 @@ class TestLimits:
         res = api.get(SEARCH, {"q": "b"})
         assert res.status_code == 429 and 40 <= int(res["Retry-After"]) <= 42 and len(net.calls) == 1
 
-    def test_pexels_monthly_reset_is_a_unix_time(self, api, pexels, net):
-        reset = str(int(time.time()) + 3 * 86400)
-        headers = {"x-ratelimit-remaining": "0", "x-ratelimit-reset": reset}
-        net.add(
-            PEXELS_SEARCH,
-            FakeResponse(payload={"total_results": 1, "photos": [pexels_item()]}, headers=headers),
-        )
-        api.get(SEARCH, {"q": "a"})
-        res = api.get(SEARCH, {"q": "b"})
-        assert res.status_code == 429 and int(res["Retry-After"]) > 2 * 86400
-
     def test_unsplash_429_without_reset_pauses_for_the_fallback(self, api, unsplash, net):
         net.add(UNSPLASH_SEARCH, FakeResponse(status=429))
         assert api.get(SEARCH, {"q": "a"}).status_code == 429
@@ -460,15 +447,15 @@ class TestLimits:
 class TestProvidersEndpoint:
     def test_lists_configured_providers_in_order(self, api, every):
         body = api.get(PROVIDERS_URL).json()
-        assert [p["name"] for p in body["providers"]] == ["unsplash", "pexels", "pixabay"]
+        assert [p["name"] for p in body["providers"]] == ["unsplash", "pixabay"]
         assert body["providers"][1] == {
-            "name": "pexels",
-            "label": "Pexels",
-            "attribution": "Photos provided by Pexels",
-            "url": "https://www.pexels.com/",
+            "name": "pixabay",
+            "label": "Pixabay",
+            "attribution": "Images from Pixabay",
+            "url": "https://pixabay.com/",
         }
         assert "utm_source=doory" in body["providers"][0]["url"]
-        assert body["all"] == ["unsplash", "pexels", "pixabay"] and body["default"] == "all"
+        assert body["all"] == ["unsplash", "pixabay"] and body["default"] == "all"
         assert KEY not in json.dumps(body)
 
     def test_one_provider_has_no_all_tab(self, api, pixabay):
@@ -486,10 +473,10 @@ class TestProvidersEndpoint:
         }
 
     def test_all_providers_and_default_tab_settings(self, api, every, settings):
-        settings.STOCK_ALL_PROVIDERS = ["pexels", "pixabay"]
+        settings.STOCK_ALL_PROVIDERS = ["unsplash", "pixabay"]
         settings.STOCK_DEFAULT_TAB = "pixabay"
         body = api.get(PROVIDERS_URL).json()
-        assert body["all"] == ["pexels", "pixabay"] and body["default"] == "pixabay"
+        assert body["all"] == ["unsplash", "pixabay"] and body["default"] == "pixabay"
 
     def test_unknown_default_tab_falls_back(self, api, every, settings):
         settings.STOCK_DEFAULT_TAB = "nope"
@@ -504,15 +491,11 @@ class TestProvidersEndpoint:
         assert APIClient().get(PROVIDERS_URL).status_code == 401
 
 
-def stub_all(net, *, unsplash=None, pexels=None, pixabay=None):
+def stub_all(net, *, unsplash=None, pixabay=None):
     net.add(
         UNSPLASH_SEARCH,
         unsplash
         or FakeResponse(payload={"total": 60, "results": [unsplash_item("uuuuu1"), unsplash_item("uuuuu2")]}),
-    )
-    net.add(
-        PEXELS_SEARCH,
-        pexels or FakeResponse(payload={"total_results": 2, "photos": [pexels_item(1), pexels_item(2)]}),
     )
     net.add(PIXABAY_API, pixabay or pixabay_page([pixabay_item(7)], total_hits=900))
 
@@ -524,12 +507,10 @@ class TestAllSearch:
         body = api.get(SEARCH, {"q": "x", "provider": "all"}).json()
         assert [(p["provider"], p["id"]) for p in body["results"]] == [
             ("unsplash", "uuuuu1"),
-            ("pexels", "1"),
             ("pixabay", "7"),
             ("unsplash", "uuuuu2"),
-            ("pexels", "2"),
         ]
-        assert body["provider"] == "all" and body["skipped"] == [] and body["total"] == 60 + 2 + 500
+        assert body["provider"] == "all" and body["skipped"] == [] and body["total"] == 60 + 500
         assert json.loads(base64.urlsafe_b64decode(body["next_page"] + "==")) == {"pixabay": 2, "unsplash": 2}
 
     def test_searches_share_one_bounded_pool(self, api, every, net, monkeypatch):
@@ -559,8 +540,8 @@ class TestAllSearch:
         [
             "!!!",
             cursor({"evil": 2}),
-            cursor({"pexels": 0}),
-            cursor({"pexels": True}),
+            cursor({"unsplash": 0}),
+            cursor({"unsplash": True}),
             cursor([1]),
             cursor({}),
         ],
@@ -569,18 +550,11 @@ class TestAllSearch:
         assert api.get(SEARCH, {"provider": "all", "cursor": bad}).status_code == 400 and net.calls == []
 
     def test_one_provider_failing_is_skipped(self, api, every, net):
-        stub_all(
-            net,
-            pexels=FakeResponse(status=500),
-            pixabay=FakeResponse(status=429, headers={"Retry-After": "9"}),
-        )
+        stub_all(net, pixabay=FakeResponse(status=429, headers={"Retry-After": "9"}))
         body = api.get(SEARCH, {"q": "x", "provider": "all"}).json()
         assert {p["provider"] for p in body["results"]} == {"unsplash"}
-        assert sorted(body["skipped"], key=lambda s: s["provider"]) == [
-            {"provider": "pexels", "reason": "unavailable", "retry_after": None},
-            {"provider": "pixabay", "reason": "busy", "retry_after": 9},
-        ]
-        # The busy provider stays in the cursor at the page it missed; the one that failed outright does not.
+        assert body["skipped"] == [{"provider": "pixabay", "reason": "busy", "retry_after": 9}]
+        # The busy provider stays in the cursor at the page it missed.
         assert body["next_page"] == cursor({"pixabay": 1, "unsplash": 2})
 
     def test_a_failing_provider_is_not_asked_again(self, api, every, net):
@@ -642,29 +616,28 @@ class TestAllSearch:
         stub_all(net)
         api.get(SEARCH, {"q": "x", "provider": "all"})
         calls = len(net.calls)
-        for name in ("unsplash", "pexels", "pixabay"):
+        for name in ("unsplash", "pixabay"):
             api.get(SEARCH, {"q": "x", "provider": name})
         api.get(SEARCH, {"q": "x", "provider": "all"})
-        assert len(net.calls) == calls == 3
+        assert len(net.calls) == calls == 2
 
     def test_all_providers_setting_filters(self, api, every, net, settings):
-        settings.STOCK_ALL_PROVIDERS = ["pexels", "pixabay"]
+        settings.STOCK_ALL_PROVIDERS = ["pixabay"]
         stub_all(net)
         body = api.get(SEARCH, {"q": "x", "provider": "all"}).json()
-        assert {p["provider"] for p in body["results"]} == {"pexels", "pixabay"}
+        assert {p["provider"] for p in body["results"]} == {"pixabay"}
         assert UNSPLASH_SEARCH not in net.urls()
 
     def test_every_provider_busy_is_a_429(self, api, every, net):
-        for name, wait in (("unsplash", 50), ("pexels", 20), ("pixabay", 30)):
+        for name, wait in (("unsplash", 50), ("pixabay", 30)):
             stocklimits.pause(name, wait)
         res = api.get(SEARCH, {"q": "x", "provider": "all"})
-        assert res.status_code == 429 and 19 <= int(res["Retry-After"]) <= 20 and net.calls == []
+        assert res.status_code == 429 and 29 <= int(res["Retry-After"]) <= 30 and net.calls == []
 
     def test_every_provider_down_is_a_502(self, api, every, net):
         stub_all(
             net,
             unsplash=FakeResponse(status=500),
-            pexels=FakeResponse(status=500),
             pixabay=FakeResponse(status=500),
         )
         res = api.get(SEARCH, {"q": "x", "provider": "all"})
@@ -676,9 +649,4 @@ class TestAllSearch:
 
 @pytest.fixture
 def unsplash(settings):
-    settings.UNSPLASH_ACCESS_KEY, settings.PEXELS_API_KEY, settings.PIXABAY_API_KEY = "u", "", ""
-
-
-@pytest.fixture
-def pexels(settings):
-    settings.UNSPLASH_ACCESS_KEY, settings.PEXELS_API_KEY, settings.PIXABAY_API_KEY = "", "p", ""
+    settings.UNSPLASH_ACCESS_KEY, settings.PIXABAY_API_KEY = "u", ""

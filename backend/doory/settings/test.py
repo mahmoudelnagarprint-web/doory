@@ -29,10 +29,13 @@ REST_FRAMEWORK = {
 }
 GOOGLE_CLIENT_ID = "test-google-client-id.apps.googleusercontent.com"
 UNSPLASH_ACCESS_KEY = ""
-PEXELS_API_KEY = ""
 PIXABAY_API_KEY = ""
-PEXELS_VIDEO_API_KEY = ""
 PIXABAY_VIDEO_API_KEY = ""
+# The test suite exercises every built-in provider; a developer's .env must not narrow the list.
+STOCK_PROVIDERS = ["unsplash", "pixabay"]
+STOCK_ALL_PROVIDERS = []
+STOCK_DEFAULT_TAB = "all"
+STOCK_VIDEO_PROVIDERS = ["pixabay_video"]
 FREESOUND_API_KEY = ""
 SERVER_PDF_ENABLED = True
 STATIC_ROOT = tempfile.mkdtemp(prefix="doory-test-static-")

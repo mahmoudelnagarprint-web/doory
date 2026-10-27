@@ -1,0 +1,20 @@
+import { readFileSync } from 'fs';
+import { join } from 'path';
+const dist = 'dist';
+const manifest = JSON.parse(readFileSync(join(dist,'.vite','manifest.json'),'utf8'));
+const entryKey = Object.entries(manifest).find(([,c])=>c.isEntry && c.src==='index.html')[0];
+const pageKey = 'src/pages/LocalEditorPage.tsx';
+const editorKey = Object.entries(manifest).find(([,c])=>/^assets\/editor-[\w-]+\.js$/.test(c.file))[0];
+const seen=new Set();
+const files=new Set();
+const visit=k=>{
+ if(seen.has(k)) return;
+ seen.add(k);
+ const ch=manifest[k];
+ if(!ch) throw new Error('Missing '+k);
+ files.add(ch.file);
+ for(const css of ch.css??[]) files.add(css);
+ for(const imp of ch.imports??[]) visit(imp);
+};
+visit(entryKey); visit(pageKey); visit(editorKey);
+console.log([...files].sort().join('\n'));

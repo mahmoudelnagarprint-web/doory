@@ -56,6 +56,7 @@ Packages offering a choice of licences where Doory uses the permissive one:
 | `gifenc` | 1.0.3 | `^1.0.3` | MIT | https://github.com/mattdesl/gifenc |
 | `guid-typescript` | 1.0.9 |  | ISC | https://github.com/NicolasDeveloper/guid-typescript |
 | `html2canvas` | 1.4.1 |  | MIT | https://github.com/niklasvh/html2canvas |
+| `imagetracerjs` | 1.2.6 | `^1.2.6` | Unlicense | https://github.com/jankovicsandras/imagetracerjs |
 | `iobuffer` | 5.4.0 |  | MIT | https://github.com/image-js/iobuffer |
 | `jspdf` | 4.2.1 | `^4.2.1` | MIT | https://github.com/parallax/jsPDF |
 | `lib0` | 0.2.119 | `^0.2.119` | MIT | https://github.com/dmonad/lib0 |
@@ -66,6 +67,7 @@ Packages offering a choice of licences where Doory uses the permissive one:
 | `onnxruntime-common` | 1.30.0 |  | MIT | https://github.com/Microsoft/onnxruntime |
 | `onnxruntime-web` | 1.30.0 | `^1.30.0` | MIT | https://github.com/Microsoft/onnxruntime |
 | `pako` | 2.2.0 |  | (MIT AND Zlib) | https://github.com/nodeca/pako |
+| `paper` | 0.16.0 | `^0.16.0` | MIT | https://github.com/paperjs/paper.js |
 | `performance-now` | 2.1.0 |  | MIT | https://github.com/braveg1rl/performance-now |
 | `platform` | 1.3.6 |  | MIT | https://github.com/bestiejs/platform.js |
 | `protobufjs` | 7.6.6 |  | BSD-3-Clause | https://github.com/protobufjs/protobuf.js |
