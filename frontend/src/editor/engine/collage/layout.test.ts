@@ -1,5 +1,5 @@
 import type { CollageBounds, CollageLayoutId } from '@/types/document'
-import { COLLAGE_LAYOUTS, COLLAGE_MAX_SLOTS, defaultCollageGap, defaultCollageMargin, defaultCollageStyle, framesFor, resolveFrames, resolveLayout } from './layout'
+import { COLLAGE_LAYOUTS, COLLAGE_MAX_SLOTS, defaultCollageGap, defaultCollageMargin, defaultCollageStyle, framesFor, resolveFrames, resolveLayout, respacedFrames } from './layout'
 
 const bounds: CollageBounds = { x: 0, y: 0, width: 559, height: 794 }
 
@@ -114,5 +114,26 @@ describe('collage layout solver', () => {
 
     const template = framesFor({ layout: 'grid', bounds, gap: 10, margin: 30, rtl: false }, 3)
     expect(template).toHaveLength(3)
+  })
+
+  it('respaces explicit frames to a larger gap without breaking their structure', () => {
+    const specs = [
+      { x: 0, y: 0, width: 0.5, height: 1, mask: 'arch' as const },
+      { x: 0.52, y: 0, width: 0.48, height: 0.48 },
+    ]
+    const respaced = respacedFrames(specs, bounds, 30, 30)
+    expect(respaced).toHaveLength(2)
+    // The gap should open up; proportions should survive (first frame wider, second square-ish).
+    expect(respaced[0].width).toBeGreaterThan(respaced[1].width)
+    expect(respaced[0].x + respaced[0].width).toBeLessThan(respaced[1].x)
+    expect(respaced[1].width).toBeGreaterThan(0)
+  })
+
+  it('leaves single-frame collages untouched when gap changes', () => {
+    const specs = [{ x: 0, y: 0.2, width: 0.6, height: 0.6 }]
+    const respaced = respacedFrames(specs, bounds, 30, 120)
+    expect(respaced).toHaveLength(1)
+    expect(respaced[0].width).toBeCloseTo(specs[0].width)
+    expect(respaced[0].height).toBeCloseTo(specs[0].height)
   })
 })

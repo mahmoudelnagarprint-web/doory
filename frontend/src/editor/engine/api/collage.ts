@@ -19,7 +19,7 @@ import { applyMask, buildClipPath, DEFAULT_MASK_RADIUS } from '../objects/masks'
 import { applySlotClip } from '../objects/masks'
 import { clampSlotImage, coverSlotTransform } from '../objects/slot'
 import { syncDirection } from '../objects/textStyle'
-import { COLLAGE_MAX_SLOTS, defaultCollageGap, defaultCollageMargin, defaultCollageStyle, resolveFrames, resolveLayout, type CollageFrame } from '../collage/layout'
+import { COLLAGE_MAX_SLOTS, defaultCollageGap, defaultCollageMargin, defaultCollageStyle, resolveFrames, resolveLayout, respacedFrames, type CollageFrame } from '../collage/layout'
 import { collageMetaOf, readCollageMeta } from '../collage/model'
 
 export type CollageFont = 'Cairo' | 'Amiri' | 'Tajawal'
@@ -451,7 +451,11 @@ export class CollageApi {
   }
 
   setGap(id: string, gap: number): void {
-    this.reflow(id, { gap }, 'Change collage layout', 'collage:gap')
+    // Explicit layouts bake their spacing into the frames, so a gap change re-spaces those frames
+    // instead of only updating the value the templates would re-solve with.
+    const meta = this.metaOf(id)
+    const frames = meta?.frames?.length ? respacedFrames(meta.frames, meta.bounds, meta.margin, gap) : undefined
+    this.reflow(id, frames ? { gap, frames } : { gap }, 'Change collage layout', 'collage:gap')
   }
 
   setMargin(id: string, margin: number): void {
@@ -466,13 +470,14 @@ export class CollageApi {
     this.reflow(id, { style }, 'Change collage frame', 'collage:style')
   }
 
+  /** The shared meta of a collage's slots (its non-companion objects), or null when it is gone. */
+  private metaOf(id: string): CollageMeta | undefined {
+    const meta = this.view?.canvas.getObjects().map(collageMetaOf).find((item) => item?.id === id && !item.role)
+    return meta ?? undefined
+  }
+
   moveCollage(id: string, dx: number, dy: number): void {
-    const view = this.view
-    const first = view?.canvas.getObjects().find((object) => {
-      const meta = collageMetaOf(object)
-      return meta?.id === id && !meta.role
-    })
-    const meta = first ? collageMetaOf(first) : undefined
+    const meta = this.metaOf(id)
     if (!meta) return
     this.reflow(id, { bounds: { ...meta.bounds, x: meta.bounds.x + dx, y: meta.bounds.y + dy } }, 'Move collage', 'collage:move')
   }

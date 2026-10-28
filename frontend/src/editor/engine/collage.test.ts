@@ -244,4 +244,39 @@ describe('Smart Collage Studio engine', () => {
     expect(group?.slots).toHaveLength(6)
     engine.dispose()
   })
+
+  it('respaces explicit frames when setGap is called on a generated collage', async () => {
+    const { engine, pageId } = setup()
+    await engine.whenView(pageId)
+    const id = await engine.collage.create({ template: 'grid', count: 4 })
+    const first = slots(engine, id)[0]
+    await engine.collage.replaceSlotWithAsset(pageId, first.id, await asset(engine))
+
+    // Switch to an explicit layout (simulate picking from Smart Studio)
+    const explicitFrames = [
+      { x: 0, y: 0, width: 0.5, height: 1 },
+      { x: 0.52, y: 0, width: 0.48, height: 0.48 },
+      { x: 0.52, y: 0.52, width: 0.48, height: 0.48 },
+      { x: 0.02, y: 0.52, width: 0.48, height: 0.48 },
+    ]
+    engine.collage.applyFrames(id, explicitFrames)
+
+    let group = collageGroups(objectsOf(engine)).find((item) => item.id === id)
+    expect(group?.layout).toBe('custom')
+    const oldGap = group?.gap ?? 0
+    expect(group?.frames).toHaveLength(4)
+
+    // Change gap via setGap - should re-space the explicit frames, not just update the value
+    engine.collage.setGap(id, oldGap + 40)
+
+    group = collageGroups(objectsOf(engine)).find((item) => item.id === id)
+    expect(group?.gap).toBe(oldGap + 40)
+    expect(group?.frames).toHaveLength(4)
+    // Frames should have been re-spaced (the second frame's x should have moved right)
+    expect(group?.frames?.[1]?.x ?? 0).toBeGreaterThan(0.52)
+    // Photos should stay in their slots
+    expect(group?.slots).toHaveLength(4)
+    expect(group?.slots[0].id).toBe(first.id)
+    engine.dispose()
+  })
 })

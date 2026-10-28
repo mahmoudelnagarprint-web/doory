@@ -59,6 +59,7 @@ interface Box {
 }
 
 const clamp = (n: number, min: number, max: number): number => Math.min(max, Math.max(min, n))
+const round4 = (n: number): number => Math.round(n * 10000) / 10000
 
 function safeBox(bounds: CollageBounds, margin: number): Box {
   const m = Math.max(0, margin)
@@ -255,4 +256,119 @@ export function framesFor(meta: Pick<CollageMeta, 'layout' | 'frames' | 'bounds'
   return meta.frames && meta.frames.length > 0
     ? resolveFrames(meta.frames, meta.bounds, meta.margin, meta.rtl)
     : resolveLayout(meta.layout, count, meta.bounds, meta.gap, meta.margin, meta.rtl)
+}
+
+/* ------------------------------------------------------------------ respacing explicit frames */
+
+/** Edges closer than this are the same boundary: generated specs round to four decimals. */
+const GUTTER_EPS = 0.0015
+/** Floor for how much a column may thin before the asked-for gutter is capped instead. */
+const RESPACE_MIN_SCALE = 0.25
+
+/** Collapses near-identical edges into one representative, so shared boundaries move together. */
+function tiedEdges(values: readonly number[]): number[] {
+  const order = values.map((value, index) => ({ value, index })).sort((a, b) => a.value - b.value)
+  const out = new Array<number>(values.length)
+  let from = 0
+  while (from < order.length) {
+    let to = from
+    let max = order[from].value
+    while (to + 1 < order.length && order[to + 1].value - max <= GUTTER_EPS) {
+      to++
+      max = order[to].value
+    }
+    for (let i = from; i <= to; i++) out[order[i].index] = order[from].value
+    from = to + 1
+  }
+  return out
+}
+
+interface RespaceInterval {
+  start: number
+  end: number
+}
+
+/**
+ * Re-spaces one axis of bounds-relative frames to a new uniform gutter (as a fraction of the safe
+ * area's side). Edges that several frames share are tied and move together; the runs between an end
+ * edge and the next start edge become the gutter, and every other run (a column's width, an offset
+ * between staggered rows) keeps its share of the span, so the outer silhouette and each frame's
+ * proportions survive. A very large ask thins the frames instead of overlapping them.
+ */
+function respacedAxis(intervals: readonly RespaceInterval[], gutter: number): RespaceInterval[] {
+  const n = intervals.length
+  if (n < 2) return intervals.map((interval) => ({ ...interval }))
+  const starts = tiedEdges(intervals.map((interval) => interval.start))
+  const ends = tiedEdges(intervals.map((interval) => interval.end))
+  const cuts: { value: number; isEnd: boolean }[] = []
+  for (let i = 0; i < n; i++) {
+    cuts.push({ value: starts[i], isEnd: false }, { value: ends[i], isEnd: true })
+  }
+  // A touching pair (zero gutter) sorts its end edge first, so the pair reads as one gutter run.
+  cuts.sort((a, b) => a.value - b.value || (a.isEnd === b.isEnd ? 0 : a.isEnd ? -1 : 1))
+  const unique: { value: number; isEnd: boolean }[] = []
+  for (const cut of cuts) {
+    const last = unique[unique.length - 1]
+    if (!last || last.value !== cut.value || last.isEnd !== cut.isEnd) unique.push(cut)
+  }
+  const span = unique[unique.length - 1].value - unique[0].value
+  if (!(span > 0)) return intervals.map((interval) => ({ ...interval }))
+  let gutterCount = 0
+  let body = 0
+  const isGutter: boolean[] = []
+  for (let i = 1; i < unique.length; i++) {
+    const gutterRun = unique[i - 1].isEnd && !unique[i].isEnd
+    isGutter.push(gutterRun)
+    if (gutterRun) gutterCount++
+    else body += unique[i].value - unique[i - 1].value
+  }
+  let k = 1
+  let g = Math.max(0, gutter)
+  if (gutterCount > 0 && body > 0) {
+    k = (span - g * gutterCount) / body
+    if (k < RESPACE_MIN_SCALE) {
+      k = RESPACE_MIN_SCALE
+      g = Math.max(0, (span - k * body) / gutterCount)
+    }
+  }
+  const place = new Array<number>(unique.length)
+  place[0] = unique[0].value
+  for (let i = 1; i < unique.length; i++) {
+    place[i] = place[i - 1] + (isGutter[i - 1] ? g : (unique[i].value - unique[i - 1].value) * k)
+  }
+  const at = (value: number, isEnd: boolean): number => {
+    const index = unique.findIndex((cut) => cut.value === value && cut.isEnd === isEnd)
+    return index >= 0 ? place[index] : value
+  }
+  return intervals.map((_interval, i) => {
+    const start = at(starts[i], false)
+    const end = at(ends[i], true)
+    return { start, end: Math.max(start + 0.001, end) }
+  })
+}
+
+/**
+ * Re-spaces explicit frames so every pair of neighbours sits `gap` page px apart.
+ *
+ * Curated and generated layouts bake their spacing into the specs, so the gap slider cannot just
+ * re-solve them: this redistributes the spacing instead, keeping the layout's structure (shared
+ * edges move together, widths and offsets keep their shares) and its outer silhouette.
+ */
+export function respacedFrames(
+  specs: readonly CollageFrameSpec[],
+  bounds: CollageBounds,
+  margin: number,
+  gap: number,
+): CollageFrameSpec[] {
+  if (specs.length < 2) return [...specs]
+  const box = safeBox(bounds, margin)
+  const xs = respacedAxis(specs.map((spec) => ({ start: spec.x, end: spec.x + spec.width })), gap / Math.max(1, box.width))
+  const ys = respacedAxis(specs.map((spec) => ({ start: spec.y, end: spec.y + spec.height })), gap / Math.max(1, box.height))
+  return specs.map((spec, index) => ({
+    ...spec,
+    x: round4(xs[index].start),
+    y: round4(ys[index].start),
+    width: round4(xs[index].end - xs[index].start),
+    height: round4(ys[index].end - ys[index].start),
+  }))
 }
