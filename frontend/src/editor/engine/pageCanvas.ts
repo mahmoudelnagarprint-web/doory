@@ -989,6 +989,22 @@ export class PageCanvas {
     applySlotClip(target)
     target.setCoords()
     target.set('dirty', true)
+    // Companion frames follow resized slot (approximate with style matWidth from meta)
+    const meta = asDory(target).collage
+    if (meta && meta.id) {
+      const matW = meta.style?.matWidth ?? 8
+      for (const o of this.canvas.getObjects()) {
+        const m = asDory(o).collage
+        if (m && m.id === meta.id && m.index === meta.index && m.role) {
+          const isMat = m.role === 'mat'
+          const w = slot.width + (isMat ? matW * 2 : 0)
+          const h = slot.height + (isMat ? matW * 2 : 0)
+          o.set({ left: slot.cx, top: slot.cy, width: Math.max(1, w), height: Math.max(1, h), angle: slot.angle })
+          o.setCoords()
+          o.set('dirty', true)
+        }
+      }
+    }
     return true
   }
 
@@ -1004,6 +1020,18 @@ export class PageCanvas {
     applySlotClip(target)
     clampSlotImage(target)
     target.set('dirty', true)
+    // Companions follow rotation
+    const meta = asDory(target).collage
+    if (meta && meta.id) {
+      for (const o of this.canvas.getObjects()) {
+        const m = asDory(o).collage
+        if (m && m.id === meta.id && m.index === meta.index && m.role) {
+          o.set({ left: g.slot.cx + offset.x, top: g.slot.cy + offset.y, angle: target.angle })
+          o.setCoords()
+          o.set('dirty', true)
+        }
+      }
+    }
     return true
   }
 
