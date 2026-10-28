@@ -11,6 +11,7 @@ import {
   generateRandomBlobFrame,
   PATTERN_DEFINITIONS,
   frameMask,
+  BLOB_SEEDS,
   type PatternDefinition,
   type PatternOptions,
   applyPatternToRect,
@@ -22,7 +23,6 @@ import { t } from '../../strings'
 import { Skeleton } from '../../ui/Skeleton'
 import { FrameArtwork, NATIVE_FRAMES, type FrameDefinition as ThumbFrame } from './FrameThumb'
 import styles from './ElementsPanel.module.css'
-import type { MaskShape, MaskShapeId } from '@/types/document'
 
 // ============================================
 // TYPES & CONSTANTS
@@ -217,6 +217,13 @@ export function ElementsPanel() {
   // ============================================
   
   const insertIcon = useCallback(async (icon: IconifyIcon) => {
+    try {
+      const svg = await fetchIconSvg(icon)
+      await editor.insert.svgElement(svg, `iconify:${icon.id}`, icon.label)
+    } catch {
+      editor.toast('Could not insert icon', 'error')
+    }
+  }, [editor])
 
   const insertUndraw = useCallback(async (item: UndrawItem) => {
     try {
@@ -549,6 +556,9 @@ export function ElementsPanel() {
               </div>
             </div>
 
+            {/* 4. Frames & Masks */}
+            <div className={styles.section}>
+              <div className={styles.sectionHeader}>
                 <h3 className={styles.sectionTitle}><Box size={16} /> Frames & Masks</h3>
                 <button type="button" className={styles.seeAllBtn} data-testid="see-all-frames" onClick={() => setCategory('frames')}>See all</button>
               </div>

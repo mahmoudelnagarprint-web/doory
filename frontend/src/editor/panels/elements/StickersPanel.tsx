@@ -11,10 +11,8 @@ import { LibraryBig, Search, Wand2, X } from 'lucide-react'
 import {
   fetchIconSvg,
   iconPreviewUrl,
-  searchStickers,
-  MAX_SEARCH_LIMIT,
-  type CategorizedIcon,
-} from '@/lib/api'
+} from '@/lib/api/iconify'
+import { searchStickers, MAX_SEARCH_LIMIT, type CategorizedIcon } from '@/lib/api/megaAssets'
 import { getCuratedCategoryPage } from '@/lib/api/megaAssets'
 import { useEditor } from '../../context'
 import { useDebounced } from '../../hooks/useDebounced'

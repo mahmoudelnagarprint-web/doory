@@ -3,7 +3,7 @@
  * 25+ native clipping frames, procedural organic blob generator,
  * and 25+ customizable SVG pattern generators.
  */
-import type { MaskShape } from '@/types/document'
+import type { MaskShape, MaskShapeId } from '@/types/document'
 
 // ============================================
 // FRAME DEFINITIONS (25+ frames)

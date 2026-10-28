@@ -79,7 +79,7 @@ describe('editor chrome', () => {
     const names = within(rail)
       .getAllByRole('button')
       .map((b) => b.textContent)
-    expect(names.slice(0, 5)).toEqual(['Templates', 'Text', 'Shapes', 'Elements', 'Assets'])
+    expect(names.slice(0, 5)).toEqual(['Templates', 'Text', 'Shapes', 'Stickers', 'Elements'])
     expect(within(screen.getByTestId('ed-topbar')).queryByRole('button', { name: 'Text' })).not.toBeInTheDocument()
   })
 

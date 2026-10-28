@@ -325,6 +325,52 @@
 .dicebearSelector {
   padding: 4px 0;
 }
+
+/* DiceBear 12-variation grid: standard asset-library experience */
+.dicebearGrid {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 8px;
+}
+@media (max-width: 340px) {
+  .dicebearGrid { grid-template-columns: repeat(3, 1fr); }
+}
+.dicebearCell {
+  aspect-ratio: 1 / 1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 6px;
+  border: 1px solid var(--ed-border);
+  border-radius: 8px;
+  background: var(--ed-surface);
+  cursor: pointer;
+  overflow: hidden;
+  transition: border-color 0.15s ease, transform 0.15s ease, box-shadow 0.15s ease;
+}
+.dicebearCell:hover:not(:disabled) {
+  border-color: var(--ed-accent, #6366f1);
+  transform: translateY(-2px);
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.08);
+}
+.dicebearCell:disabled {
+  cursor: wait;
+  opacity: 0.7;
+}
+.dicebearCellArt {
+  width: 100%;
+  height: 100%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  pointer-events: none;
+}
+.dicebearCellArt svg {
+  width: 100%;
+  height: 100%;
+  max-width: 100%;
+  max-height: 100%;
+}
 .dicebearStyleBtn {
   display: inline-flex;
   align-items: center;
@@ -349,10 +395,7 @@
   border-color: var(--ed-accent, #6366f1);
 }
 
-/* Virtual grid */
-.virtualGrid {
-  position: relative;
-}
+/* (virtual grid removed — stickers/shapes use a plain CSS grid) */
 
 /* Pattern editor */
 .patternEditor {
