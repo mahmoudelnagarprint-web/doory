@@ -13,13 +13,31 @@
   gap: 6px;
   overflow-x: auto;
   overflow-y: hidden;
-  padding: 2px 2px 6px;
+  padding: 2px 2px 8px;
   margin: 0 -4px;
-  scrollbar-width: none;
+  flex-wrap: nowrap;
+  scroll-behavior: smooth;
+  scrollbar-width: thin;
+  scrollbar-color: var(--ed-border) transparent;
   -webkit-overflow-scrolling: touch;
 }
 .categoriesBar::-webkit-scrollbar {
-  display: none;
+  height: 6px;
+}
+.categoriesBar::-webkit-scrollbar-track {
+  background: transparent;
+  border-radius: 9999px;
+}
+.categoriesBar::-webkit-scrollbar-thumb {
+  background: var(--ed-border);
+  border-radius: 9999px;
+}
+.categoriesBar::-webkit-scrollbar-thumb:hover {
+  background: var(--ed-border-hover, var(--ed-text-dim));
+}
+.categoriesBar > * {
+  flex: none;
+  scroll-snap-align: start;
 }
 
 .categoryPill {
@@ -237,18 +255,38 @@
   font: 400 13px / 1.4 var(--font-sans);
 }
 
-/* Sub-categories bar */
+/* Sub-categories bar: one horizontal scrollable row with a visible thin scrollbar */
 .subCategoriesBar {
   display: flex;
-  gap: 4px;
+  gap: 6px;
   overflow-x: auto;
   overflow-y: hidden;
-  padding: 2px 2px 6px;
+  padding: 4px 2px 8px;
   margin: 0 -4px;
-  scrollbar-width: none;
+  flex-wrap: nowrap;
+  scroll-behavior: smooth;
+  scrollbar-width: thin;
+  scrollbar-color: var(--ed-border) transparent;
   -webkit-overflow-scrolling: touch;
 }
-.subCategoriesBar::-webkit-scrollbar { display: none; }
+.subCategoriesBar::-webkit-scrollbar {
+  height: 6px;
+}
+.subCategoriesBar::-webkit-scrollbar-track {
+  background: transparent;
+  border-radius: 9999px;
+}
+.subCategoriesBar::-webkit-scrollbar-thumb {
+  background: var(--ed-border);
+  border-radius: 9999px;
+}
+.subCategoriesBar::-webkit-scrollbar-thumb:hover {
+  background: var(--ed-border-hover, var(--ed-text-dim));
+}
+.subCategoriesBar > * {
+  flex: none;
+  scroll-snap-align: start;
+}
 
 .subCategoryPill {
   flex: none;

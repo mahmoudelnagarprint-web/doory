@@ -1,11 +1,14 @@
 import { type ReactNode, useRef, useState } from 'react'
 import { type FillSpec } from '../engine/objects/fills'
 import { fillCssPreview } from '../engine/objects/fills'
-import { FillEditor } from './FillEditor'
-import { ColorPicker } from './ColorPicker'
+import { loadable } from './loadable'
 import { Popover } from './Popover'
 import { Tooltip } from './Tooltip'
 import styles from './ColorButton.module.css'
+
+/** Only needed once the popover opens, so it is downloaded on hover/focus of the button (see `preload`). */
+const FillEditor = loadable(() => import('./FillEditor').then((m) => m.FillEditor), { fallback: null })
+const ColorPicker = loadable(() => import('./ColorPicker').then((m) => m.ColorPicker), { fallback: null })
 
 interface ColorButtonProps {
   label: string
@@ -27,6 +30,7 @@ export function ColorButton({ label, value, onChange, solidOnly, variant = 'swat
   const ref = useRef<HTMLButtonElement>(null)
   const [open, setOpen] = useState(false)
   const bg = fillCssPreview(value)
+  const preload = () => Promise.all([FillEditor.preload(), ColorPicker.preload()])
   return (
     <>
       <Tooltip label={label}>
@@ -38,6 +42,8 @@ export function ColorButton({ label, value, onChange, solidOnly, variant = 'swat
           aria-haspopup="dialog"
           aria-expanded={open}
           disabled={disabled}
+          onPointerEnter={() => void preload()}
+          onFocus={() => void preload()}
           onClick={() => setOpen((o) => !o)}
         >
           {variant === 'bar' ? (

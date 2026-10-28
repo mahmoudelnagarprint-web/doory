@@ -1,0 +1,141 @@
+.panel {
+  display: flex;
+  flex: 1;
+  flex-direction: column;
+  min-height: 0;
+  background: var(--ed-surface);
+}
+
+.mockupCard {
+  position: relative;
+  background: var(--ed-surface-2);
+  borderRadius: 12;
+  overflow: hidden;
+  cursor: pointer;
+  border: 2px solid transparent;
+  transition: border-color 0.15s, transform 0.15s, box-shadow 0.15s;
+}
+
+.mockupCard:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.12);
+}
+
+.mockupCard.selected {
+  border-color: var(--ed-accent);
+}
+
+.previewSection {
+  borderTop: 1px solid var(--ed-border);
+  padding: 16px;
+}
+
+.mockupPreview {
+  position: relative;
+  background: var(--ed-surface-2);
+  borderRadius: 12;
+  overflow: hidden;
+  border: 1px solid var(--ed-border);
+  minHeight: 300;
+}
+
+.rendererLoading {
+  display: flex;
+  flexDirection: column;
+  alignItems: center;
+  justifyContent: center;
+  height: 100%;
+  minHeight: 300;
+  color: var(--ed-text-dim);
+  gap: 8;
+}
+
+.spinner {
+  width: 24px;
+  height: 24px;
+  border: 2px solid var(--ed-border);
+  borderTopColor: var(--ed-accent);
+  borderRadius: 50%;
+  animation: spin 0.8s linear infinite;
+}
+
+@keyframes spin {
+  to { transform: rotate(360deg); }
+}
+
+/* Button styles */
+.actionBtn {
+  display: inline-flex;
+  alignItems: center;
+  gap: 6px;
+  padding: 8px 14px;
+  border: 1px solid var(--ed-border);
+  borderRadius: 6px;
+  background: var(--ed-surface-2);
+  color: var(--ed-text);
+  font: 500 12px / 1 var(--font-sans);
+  cursor: pointer;
+  transition: all 0.15s ease;
+}
+
+.actionBtn:hover:not(:disabled) {
+  background: var(--ed-surface-3);
+  borderColor: var(--ed-border-hover, var(--ed-border));
+}
+
+.actionBtn:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.primaryBtn {
+  display: inline-flex;
+  alignItems: center;
+  gap: 6px;
+  padding: 8px 16px;
+  border: none;
+  borderRadius: 6px;
+  background: var(--ed-accent);
+  color: var(--ed-surface);
+  font: 600 12px / 1 var(--font-sans);
+  cursor: pointer;
+  transition: opacity 0.15s ease;
+}
+
+.primaryBtn:hover:not(:disabled) {
+  opacity: 0.9;
+}
+
+.primaryBtn:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.skeleton {
+  borderRadius: 8px;
+  background: linear-gradient(90deg, var(--ed-surface-2) 25%, var(--ed-surface-3) 50%, var(--ed-surface-2) 75%);
+  backgroundSize: 200% 100%;
+  animation: shimmer 1.5s infinite;
+}
+
+@keyframes shimmer {
+  0% { backgroundPosition: 200% 0; }
+  100% { backgroundPosition: -200% 0; }
+}
+
+/* Loading state */
+.loading {
+  display: flex;
+  alignItems: center;
+  justifyContent: center;
+  height: 200px;
+  color: var(--ed-text-dim);
+  font: 500 14px / 1 var(--font-sans);
+}
+
+/* Responsive */
+@media (max-width: 480px) {
+  .mockupCard {
+    minWidth: 160px;
+  }
+}

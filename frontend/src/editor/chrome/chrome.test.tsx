@@ -6,6 +6,7 @@ import '../builtins/commands'
 import '../builtins/panels'
 import '../presenter/commands'
 import '../engine/export/formats'
+import '../engine/export/video/formats'
 import { setupEditor } from '../animation/testing'
 import { createBlankDocument } from '@/lib/document'
 import type { DoryDocument } from '@/types/document'
@@ -78,7 +79,7 @@ describe('editor chrome', () => {
     const names = within(rail)
       .getAllByRole('button')
       .map((b) => b.textContent)
-    expect(names.slice(0, 5)).toEqual(['Templates', 'Text', 'Shapes', 'Stickers', 'Images'])
+    expect(names.slice(0, 5)).toEqual(['Templates', 'Text', 'Shapes', 'Elements', 'Assets'])
     expect(within(screen.getByTestId('ed-topbar')).queryByRole('button', { name: 'Text' })).not.toBeInTheDocument()
   })
 

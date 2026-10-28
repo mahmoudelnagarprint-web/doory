@@ -1,5 +1,5 @@
 import type { CollageBounds, CollageLayoutId } from '@/types/document'
-import { COLLAGE_LAYOUTS, defaultCollageGap, defaultCollageMargin, defaultCollageStyle, resolveLayout } from './layout'
+import { COLLAGE_LAYOUTS, COLLAGE_MAX_SLOTS, defaultCollageGap, defaultCollageMargin, defaultCollageStyle, framesFor, resolveFrames, resolveLayout } from './layout'
 
 const bounds: CollageBounds = { x: 0, y: 0, width: 559, height: 794 }
 
@@ -15,7 +15,7 @@ describe('collage layout solver', () => {
 
   it('solves every template for every supported slot count inside its bounds', () => {
     for (const layout of COLLAGE_LAYOUTS) {
-      for (let count = 1; count <= 12; count++) {
+      for (let count = 1; count <= COLLAGE_MAX_SLOTS; count++) {
         const frames = resolveLayout(layout, count, bounds, 10, 30, false)
         expect(frames).toHaveLength(count)
         for (const frame of frames) {
@@ -81,5 +81,38 @@ describe('collage layout solver', () => {
   it('recognises every layout id', () => {
     const ids: CollageLayoutId[] = [...COLLAGE_LAYOUTS]
     expect(new Set(ids).size).toBe(ids.length)
+  })
+
+  it('resolves explicit frames, keeps their shapes and mirrors them for RTL', () => {
+    const specs = [
+      { x: 0, y: 0, width: 0.6, height: 1, mask: 'arch' as const, radius: 0.2 },
+      { x: 0.62, y: 0, width: 0.38, height: 0.48, angle: 4 },
+    ]
+    const frames = resolveFrames(specs, bounds, 30, false)
+    expect(frames).toHaveLength(2)
+    expect(frames[0].width).toBeCloseTo((bounds.width - 60) * 0.6)
+    expect(frames[0].mask).toBe('arch')
+    expect(frames[0].radius).toBe(0.2)
+    expect(frames[1].angle).toBe(4)
+
+    const rtl = resolveFrames(specs, bounds, 30, true)
+    expect(rtl[0].cx).toBeCloseTo(bounds.width - frames[0].cx)
+    expect(rtl[1].angle).toBe(-4)
+  })
+
+  it('prefers explicit frames in framesFor and falls back to the template', () => {
+    const explicit = framesFor({
+      layout: 'custom',
+      frames: [{ x: 0, y: 0, width: 0.5, height: 1 }],
+      bounds,
+      gap: 10,
+      margin: 30,
+      rtl: false,
+    }, 1)
+    expect(explicit).toHaveLength(1)
+    expect(explicit[0].width).toBeCloseTo((bounds.width - 60) * 0.5)
+
+    const template = framesFor({ layout: 'grid', bounds, gap: 10, margin: 30, rtl: false }, 3)
+    expect(template).toHaveLength(3)
   })
 })

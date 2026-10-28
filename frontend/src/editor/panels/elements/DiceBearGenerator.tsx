@@ -231,7 +231,11 @@ function BatchStickerItem({ style, seed, onInsert }: { style: DiceBearStyle; see
       onClick={() => { if (svg) onInsert(style, seed) }}
       title={seed}
     >
-      {loading && <Spinner style={{ position: 'absolute', inset: 0, display: 'flex', alignItems: 'center', justifyContent: 'center' }} />}
+      {loading && (
+        <div style={{ position: 'absolute', inset: 0, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+          <Spinner />
+        </div>
+      )}
       {svg && !loading && (
         <div style={{ width: '100%', height: '100%', padding: 8 }} dangerouslySetInnerHTML={{ __html: svg }} />
       )}

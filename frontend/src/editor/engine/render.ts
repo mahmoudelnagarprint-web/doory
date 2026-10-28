@@ -5,7 +5,7 @@
  */
 import { type FabricObject, Group, Pattern, Rect, StaticCanvas } from 'fabric'
 import type { DocObject, DocPage } from '@/types/document'
-import { safeLinkUrl } from './api/style'
+import { safeLinkUrl } from './links'
 import { installBackground, buildBackground } from './objects/background'
 import { asDory } from './objects/dory'
 import { embedImages } from './export/svgEmbed'

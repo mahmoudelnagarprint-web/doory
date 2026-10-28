@@ -183,5 +183,3 @@ const handleControlChange = (key: keyof PatternOptions | 'rotation', value: Cont
     </div>
   )
 }
-
-import { useRef } from 'react'

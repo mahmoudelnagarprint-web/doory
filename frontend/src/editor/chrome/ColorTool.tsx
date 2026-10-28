@@ -4,13 +4,19 @@ import { normalizeColor } from '../engine/colors'
 import { documentColors } from '../engine/docOps'
 import { type FillSpec, fillCssPreview, gradientCss } from '../engine/objects/fills'
 import { t } from '../strings'
-import { ColorPicker } from '../ui/ColorPicker'
-import { FillEditor } from '../ui/FillEditor'
+import { loadable } from '../ui/loadable'
 import { Popover } from '../ui/Popover'
 import { GRADIENT_PRESETS, palettes } from '../ui/swatches'
 import { Tooltip } from '../ui/Tooltip'
 import ed from './ed.module.css'
 import { I } from './icons'
+
+/**
+ * The custom colour and gradient controls only appear after a second click inside the swatch popover, so
+ * they are downloaded then (hovering the popover starts it) instead of with the editor.
+ */
+const ColorPicker = loadable(() => import('../ui/ColorPicker').then((m) => m.ColorPicker), { fallback: null })
+const FillEditor = loadable(() => import('../ui/FillEditor').then((m) => m.FillEditor), { fallback: null })
 
 /** The default swatch set, with the Doory palette first. */
 const DEFAULT_COLORS = [
@@ -123,7 +129,15 @@ function SwatchGrid({ value, onChange, allowNone, allowGradient, testId }: Pick<
       <div className={ed.cpGrid}>
         {allowNone ? <button type="button" className={`${ed.cpSwatch} ${ed.cpNoFill} ${value.type === 'solid' && isNone(value.color) ? ed.cpOn : ''}`} title={t.swatches.noFill} aria-label={t.swatches.noFill} data-testid={`${testId}-none`} onClick={() => solid('transparent')} /> : null}
         {DEFAULT_COLORS.map((c) => swatch(c, `f-${c}`))}
-        <button type="button" className={`${ed.cpSwatch} ${ed.cpRainbow}`} title={t.swatches.custom} aria-label={t.swatches.custom} data-testid={`${testId}-custom`} onClick={() => setView('custom')} />
+        <button
+          type="button"
+          className={`${ed.cpSwatch} ${ed.cpRainbow}`}
+          title={t.swatches.custom}
+          aria-label={t.swatches.custom}
+          data-testid={`${testId}-custom`}
+          onPointerEnter={() => void ColorPicker.preload()}
+          onClick={() => setView('custom')}
+        />
       </div>
 
       {allowGradient ? (
@@ -134,7 +148,7 @@ function SwatchGrid({ value, onChange, allowNone, allowGradient, testId }: Pick<
               const spec: FillSpec = { type: 'gradient', kind: 'linear', angle: g.angle, stops: g.stops }
               return <button key={g.id} type="button" className={ed.cpSwatch} style={{ backgroundImage: gradientCss(spec) }} title={g.label} aria-label={t.swatches.gradient(g.label)} data-testid={`${testId}-gradient`} onClick={() => onChange(spec)} />
             })}
-            <button type="button" className={`${ed.cpSwatch} ${ed.cpMore}`} title={t.swatches.customGradient} aria-label={t.swatches.customGradient} onClick={() => setView('custom')}>
+            <button type="button" className={`${ed.cpSwatch} ${ed.cpMore}`} title={t.swatches.customGradient} aria-label={t.swatches.customGradient} onPointerEnter={() => void FillEditor.preload()} onClick={() => setView('custom')}>
               +
             </button>
           </div>

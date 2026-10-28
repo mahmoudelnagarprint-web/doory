@@ -89,10 +89,11 @@ describe('AssetLibraryPanel', () => {
     const vector = vi.spyOn(engine.insert, 'svgElement').mockResolvedValue()
     await renderPanel()
 
-    await user.click(screen.getByRole('tab', { name: t.assetLibrary.icons }))
-    await user.type(screen.getByPlaceholderText(t.assetLibrary.iconSearch), 'heart')
-    const cell = await screen.findByTestId('iconify-cell', {}, { timeout: 4000 })
-    expect(cell.getAttribute('title')).toBe('mdi:heart')
+    await user.click(screen.getByRole('tab', { name: t.panels.elementsTitle }))
+    await user.click(screen.getByTestId('category-pill-shapes'))
+    await user.type(screen.getByPlaceholderText(t.panels.searchElements), 'heart')
+    const cell = await screen.findByTestId('grid-shape-mdi:heart', {}, { timeout: 4000 })
+    expect(cell.getAttribute('title')).toBe('Heart')
 
     await user.click(cell)
     await waitFor(() => expect(vector).toHaveBeenCalledWith(SVG, 'iconify:mdi:heart', 'Heart'))

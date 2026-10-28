@@ -12,7 +12,6 @@ import { useEditor, useEditorState } from './context'
 import { commands, isCommandEnabled } from './commands'
 import { DEFAULT_EXPORT_OPTIONS, exportFormats } from './engine/export/registry'
 import { type ExportChoice, describeChoice, designPreset, loadLastExport, saveLastExport, suggestionFor } from './engine/export/choices'
-import { copyPageAsPng, downloadFiles, runExport } from './engine/export/exporter'
 import { useNotesOpen } from './panels/notesVisibility'
 import { useTimelineView } from './workspace/timelineVisibility'
 import { type PanelDefinition } from './panels/registry'
@@ -24,6 +23,14 @@ import { Menu, type MenuItem } from './ui/Menu'
 import { Tooltip } from './ui/Tooltip'
 import ed from './chrome/ed.module.css'
 import styles from './TopBar.module.css'
+
+/**
+ * Rendering a page to a file and zipping it is only needed once the user downloads or copies one: the
+ * pipeline (static render, page snapshots) stays behind `import()` so the editor's first load skips it.
+ * `warmExport` starts that download on hover, so the click still feels instant.
+ */
+const loadExporter = () => import('./engine/export/exporter')
+const warmExport = (): void => void loadExporter()
 
 interface TopBarProps {
   start?: ReactNode
@@ -134,6 +141,7 @@ function ShareMenu({ onPresent }: { onPresent: () => void }) {
       setBusy(true)
       const notes: string[] = []
       try {
+        const { runExport, downloadFiles } = await loadExporter()
         const files = await runExport(editor, { formatId: choice.formatId, pages: { kind: 'all' }, options: choice.options, onNote: (note) => notes.push(note) })
         downloadFiles(files)
         saveLastExport(choice)
@@ -147,11 +155,14 @@ function ShareMenu({ onPresent }: { onPresent: () => void }) {
     [editor],
   )
 
-  const copy = (): void => {
-    copyPageAsPng(editor).then(
-      () => editor.toast(t.dialog.downloadCopied, 'success'),
-      (err: unknown) => editor.toast(err instanceof Error && err.message ? err.message : t.dialog.downloadFailed, 'error'),
-    )
+  const copy = async (): Promise<void> => {
+    try {
+      const { copyPageAsPng } = await loadExporter()
+      await copyPageAsPng(editor)
+      editor.toast(t.dialog.downloadCopied, 'success')
+    } catch (err) {
+      editor.toast(err instanceof Error && err.message ? err.message : t.dialog.downloadFailed, 'error')
+    }
   }
 
   const share = (): void => {
@@ -195,7 +206,7 @@ function ShareMenu({ onPresent }: { onPresent: () => void }) {
     ...(formats.some((f) => f.controls.video) ? [{ id: 'video', label: t.topbar.videoDownload, hint: t.topbar.videoDownloadHint, tile: true, onSelect: () => editor.openDialog('download', { format: 'mp4' }) }] : []),
     ...(last && usable(last.formatId) ? [{ id: 'last', label: t.topbar.lastUsed, hint: describeChoice(last), icon: <History size={16} aria-hidden="true" />, onSelect: () => void quick(last) }] : []),
     { id: 'more', label: t.topbar.moreDownloadOptions, icon: <SlidersHorizontal size={16} aria-hidden="true" />, shortcut: commands.get('file.download')?.shortcut, onSelect: () => editor.openDialog('download') },
-    { id: 'copy', label: t.topbar.copyImage, icon: <Copy size={16} aria-hidden="true" />, onSelect: copy },
+    { id: 'copy', label: t.topbar.copyImage, icon: <Copy size={16} aria-hidden="true" />, onSelect: () => void copy() },
     { id: 's-present', separator: true },
     { id: 'h-present', label: t.topbar.presentHeading, heading: true },
     { id: 'present', label: t.topbar.presentFull, icon: <Presentation size={16} aria-hidden="true" />, onSelect: onPresent },
@@ -213,10 +224,14 @@ function ShareMenu({ onPresent }: { onPresent: () => void }) {
         disabled={busy}
         data-testid="ed-share"
         onPointerEnter={() => {
+          warmExport()
           preloadDialog('download')
           if (canShare) preloadDialog('share')
         }}
-        onFocus={() => preloadDialog('download')}
+        onFocus={() => {
+          warmExport()
+          preloadDialog('download')
+        }}
         onClick={() => setOpen((o) => !o)}
       >
         {canShare ? <Share2 size={15} aria-hidden="true" /> : I.download}

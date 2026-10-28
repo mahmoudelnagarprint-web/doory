@@ -5,6 +5,10 @@ import { canvasToBlob, renderPageToCanvas } from '../render'
 import { type ExportFile, type ExportOptions, type ExportStage, exportFormats } from './registry'
 import { type FileNaming, type FilenameStyle, unixNow } from './filenames'
 import { bundleFiles } from './zip'
+// The built-in formats register themselves when the export pipeline loads. That keeps the Share menu and the Download
+// dialog complete as soon as either one has loaded, without pulling their code into the editor's first download.
+import './formats'
+import './video/formats'
 
 export type PageSelection = { kind: 'all' } | { kind: 'current' } | { kind: 'pages'; pages: number[] }
 

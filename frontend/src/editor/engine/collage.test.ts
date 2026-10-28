@@ -197,4 +197,51 @@ describe('Smart Collage Studio engine', () => {
     expect(objectsOf(engine)).toHaveLength(12)
     engine.dispose()
   })
+
+  it('applies explicit generated frames, keeps the photo and falls back to the grid on growth', async () => {
+    const { engine, pageId } = setup()
+    await engine.whenView(pageId)
+    const id = await engine.collage.create()
+    const first = slots(engine, id)[0]
+    await engine.collage.replaceSlotWithAsset(pageId, first.id, await asset(engine))
+
+    const frames = [
+      { x: 0, y: 0, width: 0.5, height: 1, mask: 'arch' as const },
+      { x: 0.5, y: 0, width: 0.25, height: 0.5 },
+      { x: 0.75, y: 0, width: 0.25, height: 0.5 },
+      { x: 0.5, y: 0.5, width: 0.5, height: 0.5, angle: 4 },
+    ]
+    engine.collage.applyFrames(id, frames)
+
+    let group = collageGroups(objectsOf(engine)).find((item) => item.id === id)
+    expect(group?.layout).toBe('custom')
+    expect(group?.frames).toHaveLength(4)
+    expect(group?.slots).toHaveLength(4)
+    expect(group?.slots[0].id).toBe(first.id)
+    expect(group?.slots[0].type).toBe('image')
+    expect((group?.slots[0] as { slot?: SlotSpec }).slot?.mask).toBe('arch')
+
+    // The arch mat is a clipped path, not a plain rectangle, and the photo stayed in slot 1.
+    const view = engine.activeView()
+    const mat = view?.canvas.getObjects().find((object) => {
+      const meta = asDory(object).collage
+      return meta?.id === id && meta.role === 'mat' && meta.index === 0
+    })
+    expect(mat?.type).toBe('path')
+
+    // Fewer slots slices the explicit frames.
+    engine.collage.setCount(id, 2)
+    group = collageGroups(objectsOf(engine)).find((item) => item.id === id)
+    expect(group?.layout).toBe('custom')
+    expect(group?.frames).toHaveLength(2)
+    expect(group?.slots).toHaveLength(2)
+
+    // More slots than the layout has falls back to the built-in grid.
+    engine.collage.setCount(id, 6)
+    group = collageGroups(objectsOf(engine)).find((item) => item.id === id)
+    expect(group?.layout).toBe('grid')
+    expect(group?.frames).toBeUndefined()
+    expect(group?.slots).toHaveLength(6)
+    engine.dispose()
+  })
 })

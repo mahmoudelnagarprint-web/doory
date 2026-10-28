@@ -29,16 +29,9 @@ import type { ImageFilterType } from '@/types/document'
 import { coverFrame } from './insert'
 import { t } from '../../strings'
 import { isLiveClip } from './videos'
+import { safeLinkUrl } from '../links'
 
-/** The normalised URL when `raw` is an absolute http(s) address, otherwise null. */
-export function safeLinkUrl(raw: string): string | null {
-  try {
-    const url = new URL(raw.trim())
-    return url.protocol === 'https:' || url.protocol === 'http:' ? url.href : null
-  } catch {
-    return null
-  }
-}
+export { safeLinkUrl }
 
 export type DashStyle = 'solid' | 'dashed' | 'dotted'
 

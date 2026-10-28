@@ -57,6 +57,24 @@ describe('collage document model', () => {
     expect(read?.style.matWidth).toBe(8)
   })
 
+  it('reads explicit frames, keeps their shape and treats the layout as custom', () => {
+    const read = readCollageMeta({
+      id: 'c3',
+      layout: 'custom',
+      frames: [
+        { x: 0, y: 0, width: 0.5, height: 0.8, mask: 'arch', radius: 0.2, angle: 5 },
+        { x: 0.6, y: 0, width: 0, height: 0.4 },
+        { x: 0.6, y: 0.5, width: 0.4, height: 0.5 },
+      ],
+    })
+    expect(read?.layout).toBe('custom')
+    expect(read?.frames).toHaveLength(2)
+    expect(read?.frames?.[0]).toMatchObject({ x: 0, y: 0, width: 0.5, height: 0.8, mask: 'arch', radius: 0.2, angle: 5 })
+    expect(read?.frames?.[1]).toMatchObject({ x: 0.6, y: 0.5, width: 0.4, height: 0.5 })
+    // A layout marked custom without usable frames falls back to the built-in grid.
+    expect(readCollageMeta({ id: 'c4', layout: 'custom' })?.layout).toBe('grid')
+  })
+
   it('groups only slots, in reading order, and ignores the mat/inner frames', () => {
     const objects: DocObject[] = [
       placeholder(1),

@@ -9,7 +9,6 @@
  * page are released when newer ones exist, so a long session of edits does not pile up blobs.
  */
 import type { DocPage } from '@/types/document'
-import { renderPageToCanvas, canvasToBlob } from './render'
 import type { LoadContext } from './serialization'
 
 export const SNAPSHOT_WIDTH = 640
@@ -123,6 +122,8 @@ export class PageSnapshots {
   }
 
   private async render(page: DocPage, size: { width: number; height: number }, key: string): Promise<string> {
+    // The static render pipeline is a download of its own: only pages that actually need a bitmap pay for it.
+    const { renderPageToCanvas, canvasToBlob } = await import('./render')
     const multiplier = Math.min(1, SNAPSHOT_WIDTH / size.width)
     const canvas = await renderPageToCanvas(page, size, this.ctx(), { multiplier })
     if (this.disposed) return ''

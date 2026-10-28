@@ -1,5 +1,5 @@
 import { QueryClient } from '@tanstack/react-query'
-import { isApiError } from '@/lib/api'
+import { isApiError } from '@/lib/api/client'
 
 /** Retry only transient failures; 4xx answers are final. */
 function shouldRetry(failureCount: number, error: unknown): boolean {

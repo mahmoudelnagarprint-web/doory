@@ -1,17 +1,15 @@
-import type { MaskShapeId } from '@/types/document'
-import { EXTENDED_FRAMES, getBlobFrame, BLOB_SEEDS } from './FramesAndShapesCatalog'
+import type { FrameDefinition } from './FramesAndShapesCatalog'
+import { EXTENDED_FRAMES, getBlobFrame } from './FramesAndShapesCatalog'
 
-export interface FrameDefinition {
-  id: MaskShapeId
-  name: string
-  path: string
-}
+export type { FrameDefinition }
+
+const BLOB_SEEDS = [12345, 23456, 34567, 45678, 56789]
 
 const BLOB_FRAMES = BLOB_SEEDS.map((_, i) => getBlobFrame(i))
 
 export const NATIVE_FRAMES: FrameDefinition[] = [
-  ...EXTENDED_FRAMES.filter(f => !f.generator).map(f => ({ id: f.id, name: f.name, path: f.path })),
-  ...BLOB_FRAMES.map(f => ({ id: f.id, name: f.name, path: f.path })),
+  ...EXTENDED_FRAMES.filter(f => !f.generator).map(f => ({ id: f.id, name: f.name, path: f.path, category: f.category })),
+  ...BLOB_FRAMES.map(f => ({ id: f.id, name: f.name, path: f.path, category: f.category })),
 ]
 
 export function FrameArtwork({ path, id }: { path: string; id: string }) {

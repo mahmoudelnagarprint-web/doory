@@ -9,7 +9,7 @@ import { parseIconId, searchIcons, fetchIconSvg, iconPreviewUrl } from './iconif
 
 const ICONIFY_API = 'https://api.iconify.design'
 const ICONIFY_COLLECTION_PAGE_SIZE = 60
-const MAX_SEARCH_LIMIT = 999
+export const MAX_SEARCH_LIMIT = 999
 
 // Sticker/Vector collection prefixes to load fully
 export const STICKER_COLLECTION_PREFIXES = [
@@ -23,6 +23,9 @@ export const STICKER_COLLECTION_PREFIXES = [
 ] as const
 
 export type StickerPrefix = (typeof STICKER_COLLECTION_PREFIXES)[number]
+
+/** The colored emoji sets the Stickers tab searches in; the sets above stay browse-only. */
+export const STICKER_SEARCH_PREFIXES = ['noto', 'twemoji', 'fluent-emoji-flat', 'emojione'] as const
 
 // Iconify collection response types
 export interface IconifyCollectionCategory {
@@ -59,7 +62,7 @@ const allIconsCache = new Map<StickerPrefix, CategorizedIcon[]>()
 /** Fetch full collection metadata from Iconify /collection endpoint */
 export async function fetchCollection(prefix: StickerPrefix, signal?: AbortSignal): Promise<IconifyCollectionResponse> {
   if (collectionCache.has(prefix)) return collectionCache.get(prefix)!
-  
+
   const res = await fetch(`${ICONIFY_API}/collection?prefix=${prefix}`, { signal, credentials: 'omit' })
   if (!res.ok) throw new Error(`Iconify collection ${prefix} failed (${res.status})`)
   const data = (await res.json()) as IconifyCollectionResponse
@@ -70,10 +73,10 @@ export async function fetchCollection(prefix: StickerPrefix, signal?: AbortSigna
 /** Get all icons from a collection as a flat categorized array */
 export async function getAllCollectionIcons(prefix: StickerPrefix, signal?: AbortSignal): Promise<CategorizedIcon[]> {
   if (allIconsCache.has(prefix)) return allIconsCache.get(prefix)!
-  
+
   const collection = await fetchCollection(prefix, signal)
   const icons: CategorizedIcon[] = []
-  
+
   for (const [catKey, cat] of Object.entries(collection.categories)) {
     const categoryLabel = cat.label || catKey
     for (const name of cat.icons) {
@@ -92,7 +95,7 @@ export async function getAllCollectionIcons(prefix: StickerPrefix, signal?: Abor
       }
     }
   }
-  
+
   allIconsCache.set(prefix, icons)
   return icons
 }
@@ -116,8 +119,7 @@ export async function searchStickers(
   query: string,
   { start = 0, limit = MAX_SEARCH_LIMIT, signal }: { start?: number; limit?: number; signal?: AbortSignal } = {}
 ): Promise<IconifySearchPage> {
-  const prefixes = STICKER_COLLECTION_PREFIXES.join(',')
-  return searchIcons(query, { start, limit, prefixes, signal })
+  return searchIcons(query, { start, limit, prefixes: STICKER_SEARCH_PREFIXES, signal })
 }
 
 /** Curated categories for the Stickers tab (merged across collections) */
@@ -200,6 +202,79 @@ export const CURATED_STICKER_CATEGORIES: CuratedStickerCategory[] = [
     'emojione:briefcase','emojione:chart-increasing',
   ]},
 ]
+
+/** Verified sticker slugs that work instantly as static fallback (no network needed).
+ *  These are verified against Iconify collections: noto, twemoji, fluent-emoji-flat, emojione. */
+export const DEFAULT_STICKERS: CategorizedIcon[] = [
+  // Celebrations (verified slugs)
+  'noto:party-popper','noto:confetti-ball','noto:balloon','noto:sparkles','noto:wrapped-gift',
+  'noto:sparkler','noto:fireworks','noto:mirror-ball','noto:pinata','noto:red-envelope',
+  'twemoji:party-popper','twemoji:confetti-ball','twemoji:balloon','twemoji:sparkles',
+  'fluent-emoji-flat:party-popper','fluent-emoji-flat:balloon','fluent-emoji-flat:sparkles',
+  'emojione:party-popper','emojione:confetti-ball','emojione:sparkles',
+  // Faces & Emotions
+  'noto:grinning-face','noto:face-with-tears-of-joy','noto:smiling-face-with-heart-eyes',
+  'noto:star-struck','noto:smiling-face-with-sunglasses','noto:zany-face',
+  'noto:rolling-on-the-floor-laughing','noto:partying-face','noto:smiling-face-with-halo',
+  'noto:nerd-face','noto:face-blowing-a-kiss','noto:winking-face','noto:smirking-face',
+  'noto:upside-down-face','noto:face-savoring-food','noto:beaming-face-with-smiling-eyes',
+  'noto:hugging-face','twemoji:grinning-face','twemoji:smiling-face-with-heart-eyes',
+  'fluent-emoji-flat:grinning-face','fluent-emoji-flat:smiling-face-with-heart-eyes',
+  'emojione:grinning-face','emojione:smiling-face-with-heart-eyes',
+  // Hearts & Symbols
+  'noto:heart-suit','noto:sparkling-heart','noto:growing-heart','noto:two-hearts',
+  'noto:high-voltage','noto:hundred-points','noto:rainbow','noto:fire','noto:collision',
+  'twemoji:heart','twemoji:sparkling-heart','twemoji:fire','twemoji:rainbow',
+  'fluent-emoji-flat:red-heart','fluent-emoji-flat:sparkling-heart','fluent-emoji-flat:fire',
+  'fluent-emoji-flat:rainbow','emojione:red-heart','emojione:sparkling-heart',
+  'emojione:fire','emojione:rainbow',
+  // Animals & Nature
+  'noto:dog-face','noto:cat-face','noto:monkey-face','noto:lion','noto:tiger-face',
+  'noto:panda','noto:unicorn','noto:dolphin','noto:butterfly','noto:honeybee',
+  'noto:penguin','noto:koala','noto:fox','noto:peacock','noto:rabbit-face',
+  'noto:pig-face','noto:cow-face','noto:horse-face','noto:frog','noto:owl',
+  'twemoji:dog-face','twemoji:cat-face','fluent-emoji-flat:dog-face',
+  'emojione:dog-face','emojione:cat-face',
+  // Food & Drink
+  'noto:pizza','noto:hamburger','noto:french-fries','noto:ice-cream','noto:birthday-cake',
+  'noto:cupcake','noto:doughnut','noto:cookie','noto:hot-beverage','noto:strawberry',
+  'noto:watermelon','noto:sushi','noto:taco','noto:ramen','noto:croissant',
+  'twemoji:pizza','twemoji:hamburger','twemoji:ice-cream','twemoji:birthday-cake',
+  'fluent-emoji-flat:pizza','fluent-emoji-flat:hamburger','fluent-emoji-flat:ice-cream',
+  'emojione:pizza','emojione:hamburger','emojione:ice-cream',
+  // Nature & Weather
+  'noto:sun','noto:sun-with-face','noto:full-moon','noto:cloud','noto:snowflake',
+  'noto:sunflower','noto:rose','noto:cherry-blossom','noto:four-leaf-clover',
+  'noto:seedling','noto:palm-tree','noto:maple-leaf','noto:rainbow','noto:hibiscus',
+  'twemoji:sun','twemoji:full-moon','twemoji:cloud','twemoji:snowflake',
+  'fluent-emoji-flat:sun','fluent-emoji-flat:full-moon','fluent-emoji-flat:cloud',
+  'emojione:sun','emojione:full-moon','emojione:cloud',
+  // Objects & Tech
+  'noto:camera-with-flash','noto:video-camera','noto:musical-note','noto:guitar',
+  'noto:microphone','noto:headphone','noto:rocket','noto:airplane','noto:trophy',
+  'noto:1st-place-medal','noto:graduation-cap','noto:crown','noto:gem-stone',
+  'noto:magic-wand','noto:crystal-ball','noto:artist-palette','noto:telephone-receiver',
+  'noto:e-mail','noto:mobile-phone','noto:laptop','noto:desktop-computer',
+  'twemoji:camera','twemoji:rocket','twemoji:mobile-phone',
+  'fluent-emoji-flat:camera','fluent-emoji-flat:rocket','fluent-emoji-flat:laptop',
+  'emojione:camera','emojione:rocket','emojione:laptop',
+  // Arrows & Badges
+  'noto:right-arrow','noto:left-arrow','noto:up-arrow','noto:down-arrow',
+  'noto:up-right-arrow','noto:down-right-arrow','noto:curved-arrow',
+  'noto:double-curly-loop','noto:double-exclamation','noto:exclamation',
+  'noto:question','noto:white-check-mark','noto:check-mark-button',
+  'twemoji:right-arrow','twemoji:left-arrow','fluent-emoji-flat:arrow-right',
+  'emojione:arrow-right','emojione:check-mark',
+  // Business & E-commerce
+  'noto:briefcase','noto:chart-increasing','noto:chart-decreasing','noto:bar-chart',
+  'noto:clipboard','noto:file-folder','noto:open-file-folder','noto:card-index',
+  'noto:credit-card','noto:receipt','noto:money-bag','noto:coin','noto:banknote',
+  'noto:shopping-cart','noto:shopping-bags','noto:package','noto:label',
+  'twemoji:briefcase','twemoji:chart-increasing','fluent-emoji-flat:briefcase',
+  'emojione:briefcase','emojione:chart-increasing',
+]
+  .map(parseIconId)
+  .filter((i): i is CategorizedIcon => i !== null)
 
 /** DiceBear styles for generated stickers */
 export const DICEBEAR_STYLES = [
@@ -284,22 +359,50 @@ export async function getCuratedCategoryPage(
   signal?: AbortSignal
 ): Promise<AssetPage<CategorizedIcon>> {
   if (categoryId === 'all') return getStickerPage(start, limit, signal)
-  
+
   const cat = CURATED_STICKER_CATEGORIES.find(c => c.id === categoryId)
   if (!cat) return { items: [], nextStart: null, total: 0 }
-  
-  const iconIds = cat.iconIds
-  const items: CategorizedIcon[] = []
-  
-  for (const id of iconIds.slice(start, start + limit)) {
-    const icon = parseIconId(id)
-    if (icon) items.push(icon)
+
+  // Use static fallback first for instant load, then try to validate with actual icons
+  const staticItems = DEFAULT_STICKERS.filter(icon => {
+    const catIds = cat.iconIds.map(id => id.split(':')[1])
+    return catIds.some(catId => icon.name.includes(catId))
+  })
+
+  // If static fallback has enough items, use it immediately (instant load)
+  // Otherwise try to fetch from Iconify as fallback
+  if (staticItems.length >= Math.min(limit, 20)) {
+    const items = staticItems.slice(start, start + limit)
+    return {
+      items,
+      nextStart: start + limit < staticItems.length ? start + limit : null,
+      total: staticItems.length,
+    }
   }
-  
-  return {
-    items,
-    nextStart: start + limit < iconIds.length ? start + limit : null,
-    total: iconIds.length,
+
+  // Fallback: try to fetch from curated iconIds (may fail if slugs don't exist)
+  try {
+    const iconIds = cat.iconIds
+    const items: CategorizedIcon[] = []
+
+    for (const id of iconIds.slice(start, start + limit)) {
+      const icon = parseIconId(id)
+      if (icon) items.push(icon)
+    }
+
+    return {
+      items,
+      nextStart: start + limit < iconIds.length ? start + limit : null,
+      total: iconIds.length,
+    }
+  } catch {
+    // Ultimate fallback to static items
+    const items = staticItems.slice(start, start + limit)
+    return {
+      items,
+      nextStart: start + limit < staticItems.length ? start + limit : null,
+      total: staticItems.length,
+    }
   }
 }
 

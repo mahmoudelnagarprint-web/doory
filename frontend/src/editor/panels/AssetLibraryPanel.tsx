@@ -24,7 +24,7 @@ export function AssetLibraryPanel(_props: PanelProps) {
   const hasStock = editor.adapter.services.stock !== null
   const tabs: { id: Tab; label: string }[] = [
     { id: 'photos', label: t.assetLibrary.photos },
-    { id: 'icons', label: 'Elements' },
+    { id: 'icons', label: t.panels.elementsTitle },
     { id: 'mine', label: t.assetLibrary.mine },
   ]
   const active = tabs.find((entry) => entry.id === tab) ?? tabs[0]

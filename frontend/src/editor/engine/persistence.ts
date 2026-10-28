@@ -10,7 +10,6 @@
 import type { SaveState } from '@/types/adapter'
 import type { DoryDocument } from '@/types/document'
 import type { EditorEngine } from './editor'
-import { renderPageToCanvas, canvasToBlob } from './render'
 import { pageSize } from './docOps'
 import { assertSaveable } from './assets'
 import { t } from '../strings'
@@ -268,6 +267,8 @@ export class PersistenceController {
     if (this.thumbnailPage === first) return undefined
     try {
       const size = pageSize(doc, first)
+      // The static render pipeline is a download of its own: a save without a thumbnail change never needs it.
+      const { renderPageToCanvas, canvasToBlob } = await import('./render')
       const canvas = await renderPageToCanvas(first, size, this.engine.loadContext, { multiplier: Math.min(1, THUMBNAIL_WIDTH / size.width) })
       return await canvasToBlob(canvas, 'image/webp', 0.85)
     } catch {

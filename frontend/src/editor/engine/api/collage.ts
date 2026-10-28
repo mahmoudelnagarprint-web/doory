@@ -481,6 +481,29 @@ export class CollageApi {
     this.engine.select([id])
   }
 
+  /**
+   * Natural width / height of every slot's picture, in slot order. Empty slots answer 3:2 so
+   * "auto-fit to photos" still produces a sensible row rhythm before all photos are in.
+   */
+  slotAspects(id: string): number[] {
+    const view = this.view
+    if (!view) return []
+    return view.canvas.getObjects()
+      .filter((object) => {
+        const meta = collageMetaOf(object)
+        return meta?.id === id && !meta.role
+      })
+      .sort((a, b) => (collageMetaOf(a)?.index ?? 0) - (collageMetaOf(b)?.index ?? 0))
+      .map((object) => {
+        if (object.type !== 'image') return 1.5
+        const img = object as FabricImage
+        const element = img.getElement() as { naturalWidth?: number; naturalHeight?: number; width?: number; height?: number } | undefined
+        const width = element?.naturalWidth || element?.width || img.width || 0
+        const height = element?.naturalHeight || element?.height || img.height || 0
+        return width > 0 && height > 0 ? width / height : 1.5
+      })
+  }
+
   /** Opens the file picker for an empty slot, or replaces the picture of a filled one. */
   async fillSlot(id: string): Promise<void> {
     const view = this.view

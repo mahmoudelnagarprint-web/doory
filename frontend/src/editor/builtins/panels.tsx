@@ -1,4 +1,4 @@
-import { Clapperboard, Images, LayoutGrid, LayoutTemplate, Layers, Music, PaintBucket, Palette, PanelsTopLeft, Shapes, Sparkles, Type } from 'lucide-react'
+import { Clapperboard, Images, LayoutGrid, LayoutTemplate, Layers, Music, PaintBucket, Palette, PanelsTopLeft, Shapes, Sparkles, Type, Blend, Box } from 'lucide-react'
 import { ImageDrawer } from '../drawers/ImageDrawer'
 import { ShapesDrawer } from '../drawers/ShapesDrawer'
 import { TextDrawer } from '../drawers/TextDrawer'
@@ -20,12 +20,14 @@ const CommentsPanel = loadable(() => import('../panels/CommentsPanel').then((m) 
 const ElementsPanel = loadable(() => import('../panels/elements/ElementsPanel').then((m) => m.ElementsPanel))
 const AssetLibraryPanel = loadable(() => import('../panels/AssetLibraryPanel').then((m) => m.AssetLibraryPanel))
 const CollagePanel = loadable(() => import('../panels/CollagePanel').then((m) => m.CollagePanel))
+const BackgroundTextPanel = loadable(() => import('../panels/BackgroundTextPanel').then((m) => m.BackgroundTextPanel))
+const MockupPanel = loadable(() => import('../panels/mockups/MockupPanel').then((m) => m.MockupPanel))
 
 /** Rail icons: lucide at 20 px, so the rail reads as one set. */
 const icon = (Glyph: typeof Type) => <Glyph size={20} strokeWidth={1.8} aria-hidden="true" />
 
 /**
- * The tools of the rail, most used first: Templates, Text, Shapes, Stickers and Images, then the rest. Every tool docks beside the rail
+ * The tools of the rail, most used first: Templates, Text, Shapes, Elements and Assets, then the rest. Every tool docks beside the rail
  * on desktop (a bottom sheet on small screens); Text, Images, Shapes and Background are `drawer` tools, whose content scrolls as one column
  * and stays open while things are added from it. Comments is an icon at the right end of the top bar.
  */
@@ -40,6 +42,8 @@ export function registerBuiltinPanels(): void {
   registerPanel({ id: 'image', label: 'Images', icon: icon(Images), order: 40, placement: 'drawer', component: ImageDrawer, requires: editable })
   registerPanel({ id: 'videos', label: 'Videos', icon: icon(Clapperboard), order: 45, placement: 'drawer', component: VideosPanel, preload: VideosPanel.preload, requires: editable })
   registerPanel({ id: 'background', label: 'Background', icon: icon(PaintBucket), order: 60, placement: 'drawer', component: BackgroundPanel, requires: editable })
+  registerPanel({ id: 'background-text', label: 'Background & Text', title: 'Background, Gradients, Colors, Fonts & Text Effects', icon: <Blend size={20} strokeWidth={1.8} aria-hidden="true" />, order: 65, placement: 'sidebar', width: 400, component: BackgroundTextPanel, preload: BackgroundTextPanel.preload, requires: editable })
+  registerPanel({ id: 'mockups', label: 'Mockups', title: 'Product Mockup Studio', icon: <Box size={20} strokeWidth={1.8} aria-hidden="true" />, order: 67, placement: 'sidebar', width: 420, component: MockupPanel, preload: MockupPanel.preload, requires: editable })
   registerPanel({ id: 'brand', label: 'Brand', icon: icon(Palette), order: 70, placement: 'sidebar', component: BrandPanel, preload: BrandPanel.preload, requires: ({ state }) => !state.readOnly && state.mode !== 'shared-edit' })
   registerPanel({ id: 'animate', label: 'Animate', title: 'Animate', icon: icon(Sparkles), order: 75, placement: 'sidebar', component: AnimatePanel, preload: AnimatePanel.preload, requires: editable })
   registerPanel({ id: 'audio', label: 'Audio', title: 'Audio', icon: icon(Music), order: 76, placement: 'sidebar', component: AudioPanel, preload: AudioPanel.preload, readOnly: true })

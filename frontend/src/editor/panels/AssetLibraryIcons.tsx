@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from 'react'
-import { fetchIconSvg, ICONIFY_PAGE_SIZE, iconPreviewUrl, searchIcons } from '@/lib/api'
+import { fetchIconSvg, ICONIFY_PAGE_SIZE, iconPreviewUrl, searchIcons } from '@/lib/api/iconify'
 import type { IconifyIcon } from '@/types/api'
 import { useEditor } from '../context'
 import { useAsyncList } from '../hooks/useAsyncList'

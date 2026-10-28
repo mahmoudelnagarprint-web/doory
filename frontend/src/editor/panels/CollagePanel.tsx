@@ -1,5 +1,5 @@
-import { useMemo, useState } from 'react'
-import { ArrowDown, ArrowLeft, ArrowRight, ArrowUp, Check, Grid, LayoutGrid, Palette, RotateCcw, Search, Sticker, Type, Upload, ZoomIn, ZoomOut } from 'lucide-react'
+import { lazy, Suspense, useMemo, useState } from 'react'
+import { ArrowDown, ArrowLeft, ArrowRight, ArrowUp, Check, Grid, LayoutGrid, Palette, RotateCcw, Search, Sparkles, Sticker, Type, Upload, ZoomIn, ZoomOut } from 'lucide-react'
 import type { LocalAsset } from '@/types/api'
 import type { CollageLayoutId, ImageFilterSpec } from '@/types/document'
 import { useDocument, useEditor, useEditorState } from '../context'
@@ -19,15 +19,19 @@ import { ColorButton } from '../ui/ColorButton'
 import type { PanelProps } from './registry'
 import styles from './Collage.module.css'
 
-type Tab = 'layout' | 'slots' | 'style' | 'type' | 'stickers'
+type Tab = 'layout' | 'occasions' | 'slots' | 'style' | 'type' | 'stickers'
 
 const TABS: readonly { id: Tab; label: string; icon: typeof LayoutGrid }[] = [
   { id: 'layout', label: collageStrings.layout, icon: LayoutGrid },
+  { id: 'occasions', label: collageStrings.occasions, icon: Sparkles },
   { id: 'slots', label: collageStrings.slots, icon: Grid },
   { id: 'style', label: collageStrings.style, icon: Palette },
   { id: 'type', label: collageStrings.type, icon: Type },
   { id: 'stickers', label: collageStrings.stickers, icon: Sticker },
 ]
+
+/** Generated catalogs and the occasion kits live in their own chunk, loaded with the studio. */
+const CollageSmart = lazy(() => import('./collage/CollageSmart').then((module) => ({ default: module.CollageSmart })))
 
 const FONTS: readonly { id: CollageFont; sample: string; family: string }[] = [
   { id: 'Cairo', sample: 'القاهرة', family: '"Cairo", sans-serif' },
@@ -143,31 +147,47 @@ export function CollagePanel(_props: PanelProps) {
   if (!active) {
     return (
       <div className={styles.panel} data-testid="collage-panel">
-        <div className={styles.intro}>
-          <span className={styles.studioMark}>STUDIO</span>
-          <h3>{collageStrings.intro}</h3>
-          <p>{collageStrings.introHint}</p>
+        <div className={styles.scroll}>
+          <div className={styles.intro}>
+            <span className={styles.studioMark}>STUDIO</span>
+            <h3>{collageStrings.intro}</h3>
+            <p>{collageStrings.introHint}</p>
+          </div>
+          <div className={styles.createLabel}>{collageStrings.template}</div>
+          <div className={styles.templateGrid}>
+            {COLLAGE_LAYOUTS.map((layout) => (
+              <button
+                key={layout}
+                type="button"
+                className={`${styles.templateCard} ${creating === layout ? styles.templateBusy : ''}`}
+                onClick={() => void create(layout)}
+                disabled={busy}
+                aria-busy={creating === layout || undefined}
+              >
+                <TemplateThumb layout={layout} />
+                <span>{collageStrings.templates[layout]}</span>
+              </button>
+            ))}
+          </div>
+          <button type="button" className={`${styles.primary} ${styles.wide}`} onClick={() => void create('grid')} disabled={busy}>
+            {collageStrings.create}
+          </button>
+          <p className={styles.hint}>{collageStrings.createHint}</p>
+
+          <div className={styles.sectionTitle}>{collageStrings.ideas}</div>
+          <Suspense fallback={null}>
+            <CollageSmart
+              activeId={null}
+              count={4}
+              page={pageSize}
+              mode="layouts"
+              onPicked={(id) => {
+                setPickedId(id)
+                setTab('layout')
+              }}
+            />
+          </Suspense>
         </div>
-        <div className={styles.createLabel}>{collageStrings.template}</div>
-        <div className={styles.templateGrid}>
-          {COLLAGE_LAYOUTS.map((layout) => (
-            <button
-              key={layout}
-              type="button"
-              className={`${styles.templateCard} ${creating === layout ? styles.templateBusy : ''}`}
-              onClick={() => void create(layout)}
-              disabled={busy}
-              aria-busy={creating === layout || undefined}
-            >
-              <TemplateThumb layout={layout} />
-              <span>{collageStrings.templates[layout]}</span>
-            </button>
-          ))}
-        </div>
-        <button type="button" className={`${styles.primary} ${styles.wide}`} onClick={() => void create('grid')} disabled={busy}>
-          {collageStrings.create}
-        </button>
-        <p className={styles.hint}>{collageStrings.createHint}</p>
       </div>
     )
   }
@@ -210,9 +230,21 @@ export function CollagePanel(_props: PanelProps) {
               ))}
             </div>
 
+            <div className={styles.sectionTitle}>{collageStrings.ideas}</div>
+            <Suspense fallback={null}>
+              <CollageSmart
+                key={active.id}
+                activeId={active.id}
+                count={active.slots.length}
+                page={pageSize}
+                mode="layouts"
+                onPicked={setPickedId}
+              />
+            </Suspense>
+
             <div className={styles.rowBetween}>
               <span className={styles.label}>{collageStrings.slotCount}</span>
-              <NumberField label={collageStrings.slotCount} value={active.slots.length} min={1} max={12} showLabel={false} width={64} onChange={(value) => editor.collage.setCount(active.id, value)} />
+              <NumberField label={collageStrings.slotCount} value={active.slots.length} min={1} max={16} showLabel={false} width={64} onChange={(value) => editor.collage.setCount(active.id, value)} />
             </div>
             <Slider label={collageStrings.gap} value={active.gap} min={0} max={Math.round(Math.min(pageSize.width, pageSize.height) * 0.16)} step={1} display={`${Math.round(active.gap)} px`} onChange={(value) => editor.collage.setGap(active.id, value)} />
             <Slider label={collageStrings.margin} value={active.margin} min={0} max={Math.round(Math.min(pageSize.width, pageSize.height) * 0.3)} step={1} display={`${Math.round(active.margin)} px`} onChange={(value) => editor.collage.setMargin(active.id, value)} />
@@ -235,6 +267,12 @@ export function CollagePanel(_props: PanelProps) {
             </div>
             <p className={styles.hint}>{collageStrings.moveHint}</p>
           </>
+        ) : null}
+
+        {tab === 'occasions' ? (
+          <Suspense fallback={null}>
+            <CollageSmart key={active.id} activeId={active.id} count={active.slots.length} page={pageSize} mode="occasions" onPicked={setPickedId} />
+          </Suspense>
         ) : null}
 
         {tab === 'slots' ? (

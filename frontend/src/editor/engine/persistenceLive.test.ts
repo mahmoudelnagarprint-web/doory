@@ -2,6 +2,9 @@ import { createBlankDocument } from '@/lib/document'
 import { createMemoryAdapter } from '../dev/memoryAdapter'
 import { EditorEngine } from './editor'
 import { AUTOSAVE_DELAY_MS, isUseRealtime } from './persistence'
+// The editor downloads the static render pipeline the first time a thumbnail is made. Load it up front here: these
+// tests check *when* saves happen under fake timers, and a module download is not part of that timing.
+import './render'
 
 function setup() {
   vi.spyOn(HTMLCanvasElement.prototype, 'toBlob').mockImplementation((cb) => cb(new Blob(['thumb'], { type: 'image/webp' })))

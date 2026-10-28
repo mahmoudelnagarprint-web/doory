@@ -66,6 +66,7 @@ const LAZY: Record<string, string> = {
   '/src/editor/workspace/CommentPins.tsx': 'comment pins on the pages',
   '/src/editor/panels/TemplatesPanel.tsx': 'templates panel',
   '/src/editor/panels/BrandPanel.tsx': 'brand panel',
+  '/src/editor/panels/collage/CollageSmart.tsx': 'smart collage ideas, photo palette and occasion kits',
   '/src/editor/fonts/UploadFontDialog.tsx': 'font upload dialog',
   '/src/editor/dialogs/DownloadDialog.tsx': 'download dialog (print options, video)',
   '/src/editor/dialogs/ShareDialog.tsx': 'share dialog',
@@ -102,9 +103,20 @@ describe('lazy editor chunks', () => {
 
   it('registers every command, panel, dialog and timeline section from the eager editor, not from a lazy chunk', () => {
     // A registration at the top level of a module happens when the module loads. In a lazy chunk it would only happen once
-    // that chunk had been downloaded: the shortcut, the menu entry or the row would not exist before then.
+    // that chunk had been downloaded: the shortcut, the menu entry or the row would not exist before then. A bare
+    // `void import(...)` in an eager module starts the download at start-up instead (EditorApp does this for the export
+    // formats and commands, whose code is too big for the first download), so those registrations do exist from the start.
     const registersOnLoad = /^register[A-Za-z]*\(/m
-    const late = Object.keys(sources).filter((path) => path.startsWith('/src/editor/') && registersOnLoad.test(sources[path]) && !closure.has(path))
+    const startedAtLoad = new Set<string>()
+    for (const path of closure.keys()) {
+      for (const match of sources[path].matchAll(/^\s*void\s+import\(\s*['"]([^'"]+)['"]\s*\)/gm)) {
+        const target = resolve(match[1], path)
+        if (target) startedAtLoad.add(target)
+      }
+    }
+    const late = Object.keys(sources).filter(
+      (path) => path.startsWith('/src/editor/') && registersOnLoad.test(sources[path]) && !closure.has(path) && !startedAtLoad.has(path),
+    )
     expect(late, 'these register something when they load, but only a lazy chunk loads them: import them from EditorApp.tsx').toEqual([])
   })
 

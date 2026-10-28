@@ -1,11 +1,6 @@
-import { useCallback, useEffect, useMemo, useRef, useState, Suspense, lazy } from 'react'
-import { ArrowLeft, Search, X, Sparkles, Palette, Image, Shapes, Cube, Layers } from 'lucide-react'
+import { useCallback, useEffect, useRef, useState, Suspense, lazy } from 'react'
+import { ArrowLeft, Search, X, Sparkles, Palette, Image, Shapes, Box, Layers } from 'lucide-react'
 import {
-  fetchIconSvg,
-  iconPreviewUrl,
-  parseIconId,
-  searchIcons,
-  type IconifyIcon,
   CURATED_STICKER_CATEGORIES,
   DICEBEAR_STYLES,
   type DiceBearStyle,
@@ -16,22 +11,28 @@ import {
   getCuratedCategoryPage,
   searchStickers,
   MAX_SEARCH_LIMIT,
+  DEFAULT_STICKERS,
   type CategorizedIcon,
-} from '@/lib/api'
+} from '@/lib/api/megaAssets'
+import { fetchIconSvg, iconPreviewUrl, parseIconId, searchIcons } from '@/lib/api/iconify'
+import type { IconifyIcon } from '@/types/api'
 import type { UndrawItem } from '@/lib/api/undraw'
 import { searchUndraw } from '@/lib/api/undraw'
 import {
-  EXTENDED_FRAMES,
   getBlobFrame,
   generateRandomBlobFrame,
   PATTERN_DEFINITIONS,
   type PatternDefinition,
   applyPatternToRect,
   type PatternOptions,
+  frameMask,
+  BLOB_SEEDS,
+  type FrameDefinition,
 } from './FramesAndShapesCatalog'
 import { useEditor } from '../../context'
 import { setAssetDrag } from '../../drawers/assetDrag'
 import { useDebounced } from '../../hooks/useDebounced'
+import { t } from '../../strings'
 import { Skeleton } from '../../ui/Skeleton'
 import { FrameArtwork, NATIVE_FRAMES } from './FrameThumb'
 import styles from './ElementsPanel.module.css'
@@ -47,9 +48,9 @@ const CATEGORIES: Array<{ id: ElementCategory; label: string; icon: React.ReactN
   { id: 'shapes', label: 'Shapes', icon: <Shapes size={16} /> },
   { id: 'illustrations', label: 'Illustrations', icon: <Image size={16} /> },
   { id: 'stickers', label: 'Stickers', icon: <Sparkles size={16} /> },
-  { id: 'frames', label: 'Frames', icon: <Cube size={16} /> },
+  { id: 'frames', label: 'Frames', icon: <Box size={16} /> },
   { id: 'patterns', label: 'Patterns', icon: <Palette size={16} /> },
-  { id: 'generated', label: 'AI Stickers', icon: <Cube size={16} /> },
+  { id: 'generated', label: 'AI Stickers', icon: <Box size={16} /> },
 ]
 
 const STICKER_PAGE_SIZE = 60
@@ -64,62 +65,6 @@ const PatternEditor = lazy(() => import('./PatternEditor').then(m => ({ default:
 const DiceBearGenerator = lazy(() => import('./DiceBearGenerator').then(m => ({ default: m.DiceBearGenerator })))
 
 // ============================================
-// VIRTUALIZED GRID HOOK
-// ============================================
-
-function useVirtualizedGrid<T>(
-  items: T[],
-  itemHeight: number,
-  containerHeight: number,
-  overscan = 5
-) {
-  const [scrollTop, setScrollTop] = useState(0)
-  
-  const visibleRange = useMemo(() => {
-    const start = Math.max(0, Math.floor(scrollTop / itemHeight) - overscan)
-    const visibleCount = Math.ceil(containerHeight / itemHeight)
-    const end = Math.min(items.length, start + visibleCount + overscan * 2)
-    return { start, end }
-  }, [scrollTop, itemHeight, containerHeight, overscan, items.length])
-  
-  const visibleItems = useMemo(() => 
-    items.slice(visibleRange.start, visibleRange.end).map((item, i) => ({
-      item,
-      index: visibleRange.start + i,
-      top: (visibleRange.start + i) * itemHeight,
-    })), [items, visibleRange, itemHeight])
-  
-  const totalHeight = items.length * itemHeight
-  
-  const onScroll = useCallback((e: React.UIEvent<HTMLDivElement>) => {
-    setScrollTop(e.currentTarget.scrollTop)
-  }, [])
-  
-  return { visibleItems, totalHeight, onScroll, scrollTop, setScrollTop }
-}
-
-function useVirtualizedGridWithHeight<T>(
-  items: T[],
-  itemHeight: number,
-  overscan = 5
-) {
-  const containerRef = useRef<HTMLDivElement>(null)
-  const [containerHeight, setContainerHeight] = useState(400)
-  
-  useEffect(() => {
-    const ro = new ResizeObserver(() => {
-      if (containerRef.current) setContainerHeight(containerRef.current.clientHeight)
-    })
-    if (containerRef.current) ro.observe(containerRef.current)
-    return () => ro.disconnect()
-  }, [])
-  
-  const { visibleItems, totalHeight, onScroll, scrollTop, setScrollTop } = useVirtualizedGrid(items, itemHeight, containerHeight, overscan)
-  
-  return { visibleItems, totalHeight, onScroll, scrollTop, setScrollTop, containerRef }
-}
-
-// ============================================
 // MAIN COMPONENT
 // ============================================
 
@@ -128,31 +73,37 @@ export function ElementsPanel() {
   const [selectedCategory, setCategory] = useState<ElementCategory>('all')
   const [searchQuery, setSearchQuery] = useState('')
   const debouncedQuery = useDebounced(searchQuery.trim(), 300)
-  
+
   // Sticker sub-category (for Stickers tab)
   const [stickerSubCategory, setStickerSubCategory] = useState<string>('all')
-  
+
   // Carousel data for "All" view. Previews load once on mount, so the flag starts true.
   const [previewIllustrations, setPreviewIllustrations] = useState<UndrawItem[]>([])
   const [previewStickers, setPreviewStickers] = useState<CategorizedIcon[]>([])
   const [previewGenerated, setPreviewGenerated] = useState<string[]>([])
   const [loadingPreviews, setLoadingPreviews] = useState(true)
-  
+
   // Category grid states
   const [iconifyResults, setIconifyResults] = useState<IconifyIcon[]>([])
   const [stickerResults, setStickerResults] = useState<CategorizedIcon[]>([])
   const [elementResults, setElementResults] = useState<UndrawItem[]>([])
   const [loadingCategory, setLoadingCategory] = useState(false)
   const [hasMoreCategory, setHasMoreCategory] = useState(false)
-  
+
+  // Static fallback for instant sticker display (no network wait): one page of the curated set,
+  // so the first paint stays small while the collections load behind it.
+  const stickersToShow = selectedCategory === 'stickers' && !debouncedQuery && stickerResults.length === 0
+    ? DEFAULT_STICKERS.slice(0, STICKER_PAGE_SIZE)
+    : stickerResults
+
   // Infinite scroll refs
   const gridRef = useRef<HTMLDivElement>(null)
   const observerRef = useRef<IntersectionObserver | null>(null)
   const sentinelRef = useRef<HTMLDivElement>(null)
-  
+
   // unDraw color picker state
   const [undrawPrimaryColor, setUndrawPrimaryColor] = useState('#7c5cff')
-  
+
   // Pattern editor state
   const [selectedPattern, setSelectedPattern] = useState<PatternDefinition | null>(null)
   const [patternOptions, setPatternOptions] = useState<PatternOptions>({
@@ -162,19 +113,19 @@ export function ElementsPanel() {
     opacity: 1,
     rotation: 0,
   })
-  
+
   // DiceBear state
   const [dicebearStyle, setDicebearStyle] = useState<DiceBearStyle>('fun-emoji')
   const [dicebearSeed, setDicebearSeed] = useState('doory-sticker')
-  
+
   // ============================================
   // EFFECTS
   // ============================================
-  
+
   // Load previews for "All" view
   useEffect(() => {
     let active = true
-    
+
     Promise.allSettled([
       searchUndraw(''),
       getStickerPage(0, 12),
@@ -191,38 +142,20 @@ export function ElementsPanel() {
     }).finally(() => {
       if (active) setLoadingPreviews(false)
     })
-    
+
     return () => { active = false }
   }, [])
-  
-  // IntersectionObserver for infinite scroll
-  const loadMoreRef = useRef(loadMore)
-  useEffect(() => { loadMoreRef.current = loadMore }, [loadMore])
-  
-  useEffect(() => {
-    if (!sentinelRef.current || loadingCategory || !hasMoreCategory) return
-    
-    observerRef.current = new IntersectionObserver((entries) => {
-      if (entries[0].isIntersecting && !loadingCategory && hasMoreCategory) {
-        loadMoreRef.current()
-      }
-    }, { rootMargin: '200px' })
-    
-    observerRef.current.observe(sentinelRef.current)
-    return () => observerRef.current?.disconnect()
-  }, [loadingCategory, hasMoreCategory, selectedCategory, debouncedQuery])
-  
+
   // Handle category/search change
   useEffect(() => {
     if (selectedCategory === 'all' && !debouncedQuery) return
-    
+
     let active = true
-    setLoadingCategory(true)
-    setCategoryPage(1)
-    
+
     const searchingAll = selectedCategory === 'all' && !!debouncedQuery
-    
+
     const loadCategory = async () => {
+      setLoadingCategory(true)
       try {
         if (selectedCategory === 'shapes') {
           const q = debouncedQuery || 'shape arrow'
@@ -260,7 +193,7 @@ export function ElementsPanel() {
           if (!active) return
           setHasMoreCategory(false)
         }
-        
+
         if (searchingAll) {
           const [shapes, stickers, illustrations] = await Promise.allSettled([
             searchIcons(debouncedQuery, { start: 0, limit: 36 }),
@@ -277,24 +210,24 @@ export function ElementsPanel() {
         if (active) setLoadingCategory(false)
       }
     }
-    
+
     loadCategory()
-    
+
     return () => { active = false }
   }, [selectedCategory, debouncedQuery, stickerSubCategory])
-  
+
   // Load more for infinite scroll
   const loadMore = useCallback(async () => {
     if (loadingCategory || !hasMoreCategory) return
-    
-    const nextStart = 
+
+    const nextStart =
       selectedCategory === 'shapes' ? iconifyResults.length :
       selectedCategory === 'stickers' ? stickerResults.length : 0
-    
+
     if (nextStart === 0 && selectedCategory !== 'shapes' && selectedCategory !== 'stickers') return
-    
+
     setLoadingCategory(true)
-    
+
     try {
       if (selectedCategory === 'shapes') {
         const q = debouncedQuery || 'shape arrow'
@@ -317,11 +250,28 @@ export function ElementsPanel() {
       setLoadingCategory(false)
     }
   }, [loadingCategory, hasMoreCategory, selectedCategory, debouncedQuery, stickerSubCategory, iconifyResults.length, stickerResults.length])
-  
+
+  // IntersectionObserver for infinite scroll
+  const loadMoreRef = useRef(loadMore)
+  useEffect(() => { loadMoreRef.current = loadMore }, [loadMore])
+
+  useEffect(() => {
+    if (!sentinelRef.current || loadingCategory || !hasMoreCategory) return
+
+    observerRef.current = new IntersectionObserver((entries) => {
+      if (entries[0].isIntersecting && !loadingCategory && hasMoreCategory) {
+        loadMoreRef.current()
+      }
+    }, { rootMargin: '200px' })
+
+    observerRef.current.observe(sentinelRef.current)
+    return () => observerRef.current?.disconnect()
+  }, [loadingCategory, hasMoreCategory, selectedCategory, debouncedQuery])
+
   // ============================================
   // INSERTION HANDLERS
   // ============================================
-  
+
   const insertIcon = useCallback(async (icon: IconifyIcon | CategorizedIcon) => {
     try {
       const svg = await fetchIconSvg(icon)
@@ -330,7 +280,7 @@ export function ElementsPanel() {
       editor.toast('Could not insert icon', 'error')
     }
   }, [editor])
-  
+
   const insertUndraw = useCallback(async (item: UndrawItem) => {
     try {
       const res = await fetch(item.svgUrl, { credentials: 'same-origin' })
@@ -343,15 +293,15 @@ export function ElementsPanel() {
       editor.toast('Could not insert illustration', 'error')
     }
   }, [editor, undrawPrimaryColor])
-  
-  const insertFrame = useCallback(async (maskId: MaskShapeId) => {
+
+  const insertFrame = useCallback(async (frame: FrameDefinition) => {
     try {
-      await editor.insert.placeholder(maskId)
+      await editor.insert.placeholder(frameMask(frame))
     } catch {
       editor.toast('Could not insert frame', 'error')
     }
   }, [editor])
-  
+
   const insertPattern = useCallback(async (pattern: PatternDefinition) => {
     try {
       const svg = applyPatternToRect(pattern.id, 800, 600, patternOptions)
@@ -360,7 +310,7 @@ export function ElementsPanel() {
       editor.toast('Could not insert pattern', 'error')
     }
   }, [editor, patternOptions])
-  
+
   const insertDiceBear = useCallback(async (style: DiceBearStyle, seed: string) => {
     try {
       const svg = await fetchDiceBearSvg(style, seed)
@@ -369,13 +319,13 @@ export function ElementsPanel() {
       editor.toast('Could not generate sticker', 'error')
     }
   }, [editor])
-  
+
   // ============================================
   // RENDER HELPERS
   // ============================================
-  
+
   const isAllView = selectedCategory === 'all' && !debouncedQuery
-  
+
   const renderGridItem = useCallback((
     icon: IconifyIcon | CategorizedIcon,
     size: number,
@@ -394,7 +344,7 @@ export function ElementsPanel() {
       <img src={iconPreviewUrl(icon.id, size)} alt={icon.label} loading="lazy" />
     </div>
   ), [])
-  
+
   const renderCarouselItem = useCallback((
     icon: IconifyIcon | CategorizedIcon,
     testId: string,
@@ -412,7 +362,7 @@ export function ElementsPanel() {
       <img src={iconPreviewUrl(icon.id, 48)} alt={icon.label} loading="lazy" />
     </div>
   ), [])
-  
+
   const renderUndrawCarouselItem = useCallback((item: UndrawItem) => (
     <div
       key={item.id}
@@ -426,7 +376,7 @@ export function ElementsPanel() {
       <img src={item.thumbUrl} alt={item.title} loading="lazy" />
     </div>
   ), [insertUndraw])
-  
+
   const renderUndrawGridItem = useCallback((item: UndrawItem) => (
     <div
       key={item.id}
@@ -440,7 +390,7 @@ export function ElementsPanel() {
       <img src={item.thumbUrl} alt={item.title} loading="lazy" />
     </div>
   ), [insertUndraw])
-  
+
   const renderFrameCarouselItem = useCallback((frame: FrameDefinition) => (
     <div
       key={frame.id}
@@ -448,13 +398,13 @@ export function ElementsPanel() {
       draggable
       title={frame.name}
       data-testid={`item-frame-${frame.id}`}
-      onDragStart={(e) => setAssetDrag(e.dataTransfer, { kind: 'frame', mask: frame.id, name: frame.name })}
-      onClick={() => void insertFrame(frame.id)}
+      onDragStart={(e) => setAssetDrag(e.dataTransfer, { kind: 'frame', mask: frameMask(frame), name: frame.name })}
+      onClick={() => void insertFrame(frame)}
     >
       <FrameArtwork path={frame.path} id={`carousel-${frame.id}`} />
     </div>
   ), [insertFrame])
-  
+
   const renderFrameGridItem = useCallback((frame: FrameDefinition) => (
     <div
       key={frame.id}
@@ -462,17 +412,17 @@ export function ElementsPanel() {
       draggable
       title={frame.name}
       data-testid={`grid-frame-${frame.id}`}
-      onDragStart={(e) => setAssetDrag(e.dataTransfer, { kind: 'frame', mask: frame.id, name: frame.name })}
-      onClick={() => void insertFrame(frame.id)}
+      onDragStart={(e) => setAssetDrag(e.dataTransfer, { kind: 'frame', mask: frameMask(frame), name: frame.name })}
+      onClick={() => void insertFrame(frame)}
     >
       <FrameArtwork path={frame.path} id={`grid-${frame.id}`} />
     </div>
   ), [insertFrame])
-  
+
   // ============================================
   // RENDER
   // ============================================
-  
+
   return (
     <div className={styles.panel} data-testid="elements-panel">
       {/* Search Bar */}
@@ -482,7 +432,7 @@ export function ElementsPanel() {
           type="text"
           value={searchQuery}
           onChange={(e) => setSearchQuery(e.target.value)}
-          placeholder="Search elements..."
+          placeholder={t.panels.searchElements}
           data-testid="elements-search-input"
           style={{
             width: '100%',
@@ -517,7 +467,7 @@ export function ElementsPanel() {
           </button>
         )}
       </div>
-      
+
       {/* Categories Horizontal Scrolling Bar */}
       <div className={styles.categoriesBar} role="tablist" aria-label="Element categories">
         {CATEGORIES.map((cat) => (
@@ -537,7 +487,7 @@ export function ElementsPanel() {
           </button>
         ))}
       </div>
-      
+
       {/* Sticker Sub-Categories (when in Stickers tab) */}
       {selectedCategory === 'stickers' && !debouncedQuery && (
         <div className={styles.subCategoriesBar} role="tablist" aria-label="Sticker categories">
@@ -556,7 +506,7 @@ export function ElementsPanel() {
           ))}
         </div>
       )}
-      
+
       {/* Pattern Selector (when in Patterns tab) */}
       {selectedCategory === 'patterns' && (
         <div className={styles.patternSelector}>
@@ -590,7 +540,7 @@ export function ElementsPanel() {
           )}
         </div>
       )}
-      
+
       {/* DiceBear Generator (when in Generated tab) */}
       {selectedCategory === 'generated' && (
         <div className={styles.dicebearSelector}>
@@ -652,7 +602,7 @@ export function ElementsPanel() {
           </Suspense>
         </div>
       )}
-      
+
       <div className={styles.scrollArea} ref={gridRef}>
         {isAllView ? (
           /* ================= ALL VIEW (Horizontal Carousels) ================= */
@@ -670,7 +620,7 @@ export function ElementsPanel() {
                   .slice(0, 14).map(icon => renderCarouselItem(icon, `item-shape-${icon.id}`, () => void insertIcon(icon)))}
               </div>
             </div>
-            
+
             {/* 2. Illustrations (unDraw) */}
             <div className={styles.section}>
               <div className={styles.sectionHeader}>
@@ -683,7 +633,7 @@ export function ElementsPanel() {
                   : previewIllustrations.map(renderUndrawCarouselItem)}
               </div>
             </div>
-            
+
             {/* 3. Stickers */}
             <div className={styles.section}>
               <div className={styles.sectionHeader}>
@@ -696,18 +646,18 @@ export function ElementsPanel() {
                   : previewStickers.map(icon => renderCarouselItem(icon, `item-sticker-${icon.id}`, () => void insertIcon(icon)))}
               </div>
             </div>
-            
+
             {/* 4. Frames */}
             <div className={styles.section}>
               <div className={styles.sectionHeader}>
-                <h3 className={styles.sectionTitle}><Cube size={16} /> Frames & Masks</h3>
+                <h3 className={styles.sectionTitle}><Box size={16} /> Frames & Masks</h3>
                 <button type="button" className={styles.seeAllBtn} data-testid="see-all-frames" onClick={() => setCategory('frames')}>See all</button>
               </div>
               <div className={styles.carousel} data-testid="carousel-frames">
                 {NATIVE_FRAMES.slice(0, 10).map(renderFrameCarouselItem)}
               </div>
             </div>
-            
+
             {/* 5. Patterns */}
             <div className={styles.section}>
               <div className={styles.sectionHeader}>
@@ -719,8 +669,8 @@ export function ElementsPanel() {
                   <div key={p.id} className={styles.carouselItem} onClick={() => { setCategory('patterns'); setSelectedPattern(p) }}>
                     <div style={{ width: 68, height: 68, borderRadius: 8, background: 'var(--ed-surface-2)', position: 'relative' }}>
                       <svg width="68" height="68" viewBox="0 0 68 68">
-                        <defs>{patternDefPreview(p)}</defs>
-                        <rect width="68" height="68" fill="url(#custom-pattern)" />
+                        <defs>{patternDefPreview(p, `thumb-${p.id}`)}</defs>
+                        <rect width="68" height="68" fill={`url(#custom-pattern-thumb-${p.id})`} />
                       </svg>
                     </div>
                     <span style={{ fontSize: 11, display: 'block', textAlign: 'center', marginTop: 4 }}>{p.name}</span>
@@ -728,11 +678,11 @@ export function ElementsPanel() {
                 ))}
               </div>
             </div>
-            
+
             {/* 6. Generated Stickers */}
             <div className={styles.section}>
               <div className={styles.sectionHeader}>
-                <h3 className={styles.sectionTitle}><Cube size={16} /> AI Stickers</h3>
+                <h3 className={styles.sectionTitle}><Box size={16} /> AI Stickers</h3>
                 <button type="button" className={styles.seeAllBtn} data-testid="see-all-generated" onClick={() => setCategory('generated')}>See all</button>
               </div>
               <div className={styles.carousel} data-testid="carousel-generated">
@@ -754,19 +704,31 @@ export function ElementsPanel() {
                 <ArrowLeft size={16} /> All Elements
               </button>
             </div>
-            
+
             {/* Shapes Grid */}
             {(selectedCategory === 'shapes' || (selectedCategory === 'all' && debouncedQuery)) && (
-              <VirtualizedGridSection
-                title="Shapes & Lines"
-                items={iconifyResults}
-                loading={loadingCategory}
-                hasMore={hasMoreCategory}
-                renderItem={(icon) => renderGridItem(icon, 64, `grid-shape-${icon.id}`, () => void insertIcon(icon))}
-                sentinelRef={sentinelRef}
-              />
+              <div style={{ marginBottom: 16 }}>
+                <h4 style={{ margin: '8px 0', fontSize: 13, fontWeight: 600 }}>Shapes & Lines</h4>
+                {loadingCategory && iconifyResults.length === 0 ? (
+                  <div className={styles.grid}>{Array.from({ length: 12 }, (_, i) => <Skeleton key={i} className={styles.skel} />)}</div>
+                ) : iconifyResults.length === 0 ? (
+                  <div className={styles.emptyState}>No shapes found.</div>
+                ) : (
+                  <>
+                    <div className={styles.grid}>
+                      {iconifyResults.map(icon => renderGridItem(icon, 64, `grid-shape-${icon.id}`, () => void insertIcon(icon)))}
+                    </div>
+                    <div ref={sentinelRef} style={{ height: 8 }} />
+                    {hasMoreCategory && (
+                      <button type="button" onClick={loadMore} disabled={loadingCategory} className={styles.loadMoreBtn}>
+                        {loadingCategory ? 'Loading...' : 'Load more'}
+                      </button>
+                    )}
+                  </>
+                )}
+              </div>
             )}
-            
+
             {/* Illustrations Grid */}
             {(selectedCategory === 'illustrations' || (selectedCategory === 'all' && debouncedQuery)) && (
               <div style={{ marginBottom: 16 }}>
@@ -794,40 +756,21 @@ export function ElementsPanel() {
                 )}
               </div>
             )}
-            
+
             {/* Stickers Grid */}
             {(selectedCategory === 'stickers' || (selectedCategory === 'all' && debouncedQuery)) && (
               <div style={{ marginBottom: 16 }}>
                 <h4 style={{ margin: '8px 0', fontSize: 13, fontWeight: 600 }}>Stickers</h4>
-                {!debouncedQuery && (
-                  <div className={styles.subCategoriesBar} role="tablist" aria-label="Sticker categories">
-                    {CURATED_STICKER_CATEGORIES.map((cat) => (
-                      <button
-                        key={cat.id}
-                        type="button"
-                        role="tab"
-                        aria-selected={stickerSubCategory === cat.id}
-                        className={styles.subCategoryPill}
-                        onClick={() => setStickerSubCategory(cat.id)}
-                      >
-                        {cat.label}
-                      </button>
-                    ))}
-                  </div>
-                )}
-                {loadingCategory && stickerResults.length === 0 ? (
+                {loadingCategory && stickersToShow.length === 0 ? (
                   <div className={styles.grid}>{Array.from({ length: 12 }, (_, i) => <Skeleton key={i} className={styles.skel} />)}</div>
-                ) : stickerResults.length === 0 ? (
+                ) : stickersToShow.length === 0 ? (
                   <div className={styles.emptyState}>No stickers found.</div>
                 ) : (
                   <>
-                    <VirtualizedGridSection
-                      items={stickerResults}
-                      loading={loadingCategory}
-                      hasMore={hasMoreCategory}
-                      renderItem={(icon) => renderGridItem(icon, 64, `grid-sticker-${icon.id}`, () => void insertIcon(icon))}
-                      sentinelRef={sentinelRef}
-                    />
+                    <div className={styles.grid}>
+                      {stickersToShow.map(icon => renderGridItem(icon, 64, `grid-sticker-${icon.id}`, () => void insertIcon(icon)))}
+                    </div>
+                    <div ref={sentinelRef} style={{ height: 8 }} />
                     {hasMoreCategory && selectedCategory === 'stickers' && (
                       <button type="button" onClick={loadMore} disabled={loadingCategory} className={styles.loadMoreBtn}>
                         {loadingCategory ? 'Loading...' : 'Load more'}
@@ -837,35 +780,31 @@ export function ElementsPanel() {
                 )}
               </div>
             )}
-            
+
             {/* Frames Grid */}
             {(selectedCategory === 'frames' || (selectedCategory === 'all' && debouncedQuery)) && (
               <div style={{ marginBottom: 16 }}>
                 <h4 style={{ margin: '8px 0', fontSize: 13, fontWeight: 600 }}>Frames & Masks</h4>
                 <div className={styles.grid}>
-                  {[
-                    ...NATIVE_FRAMES,
-                    ...EXTENDED_FRAMES.filter(f => !f.generator).map(f => ({ id: f.id, name: f.name, path: f.path })),
-                    ...BLOB_SEEDS.map((_, i) => getBlobFrame(i)),
-                  ].map(renderFrameGridItem)}
+                  {NATIVE_FRAMES.map(renderFrameGridItem)}
                 </div>
                 <div style={{ marginTop: 12, display: 'flex', gap: 8, flexWrap: 'wrap' }}>
                   <button type="button" className={styles.actionBtn} onClick={() => {
                     const frame = generateRandomBlobFrame()
-                    insertFrame(frame.id)
+                    void insertFrame(frame)
                   }}>
                     <Sparkles size={14} /> Random Blob
                   </button>
                   <button type="button" className={styles.actionBtn} onClick={() => {
                     // Insert all 5 blobs
-                    BLOB_SEEDS.forEach((_, i) => insertFrame(getBlobFrame(i).id))
+                    BLOB_SEEDS.forEach((_, i) => void insertFrame(getBlobFrame(i)))
                   }}>
                     <Layers size={14} /> Insert All Blobs
                   </button>
                 </div>
               </div>
             )}
-            
+
             {/* Patterns Grid */}
             {selectedCategory === 'patterns' && (
               <div style={{ marginBottom: 16 }}>
@@ -880,8 +819,8 @@ export function ElementsPanel() {
                     >
                       <div style={{ width: '100%', height: '100%', borderRadius: 8, background: 'var(--ed-surface-2)', position: 'relative' }}>
                         <svg width="100%" height="100%" viewBox="0 0 100 100" preserveAspectRatio="none">
-                          <defs>{patternDefPreview(p)}</defs>
-                          <rect width="100" height="100" fill="url(#custom-pattern)" />
+                          <defs>{patternDefPreview(p, `grid-${p.id}`)}</defs>
+                          <rect width="100" height="100" fill={`url(#custom-pattern-grid-${p.id})`} />
                         </svg>
                       </div>
                       <span style={{ fontSize: 11, display: 'block', textAlign: 'center', marginTop: 4, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{p.name}</span>
@@ -901,46 +840,12 @@ export function ElementsPanel() {
 // HELPER COMPONENTS
 // ============================================
 
-interface VirtualizedGridSectionProps<T> {
-  title?: string
-  items: T[]
-  loading: boolean
-  // hasMore: boolean - kept for future use
-  renderItem: (item: T) => React.ReactNode
-  sentinelRef: React.RefObject<HTMLDivElement>
-}
-
-function VirtualizedGridSection<T>({ title, items, loading, renderItem, sentinelRef }: VirtualizedGridSectionProps<T>) {
-  const itemHeight = 80
-  const { visibleItems, totalHeight, onScroll, containerRef } = useVirtualizedGridWithHeight(items, itemHeight)
-  
-  return (
-    <div style={{ marginBottom: 16 }}>
-      {title && <h4 style={{ margin: '8px 0', fontSize: 13, fontWeight: 600 }}>{title}</h4>}
-      {loading && items.length === 0 ? (
-        <div className={styles.grid}>{Array.from({ length: 12 }, (_, i) => <Skeleton key={i} className={styles.skel} />)}</div>
-      ) : items.length === 0 ? (
-        <div className={styles.emptyState}>No items found.</div>
-      ) : (
-        <div ref={containerRef} className={styles.virtualGrid} onScroll={onScroll} style={{ overflow: 'auto', position: 'relative' }}>
-          <div style={{ height: totalHeight, position: 'relative' }}>
-            {visibleItems.map(({ item, top }) => (
-              <div key={`${item}`} style={{ position: 'absolute', top, left: 0, right: 0 }}>{renderItem(item)}</div>
-            ))}
-          </div>
-          <div ref={sentinelRef} style={{ height: 20 }} />
-        </div>
-      )}
-    </div>
-  )
-}
-
 // Pattern preview helper for carousel/thumbnails
-function patternDefPreview(pattern: PatternDefinition) {
+function patternDefPreview(pattern: PatternDefinition, idSuffix: string | number = '') {
   const opts = pattern.defaultOptions
   const size = 100
   let content = ''
-  
+
   // Simplified preview generation for thumbnails
   switch (pattern.id) {
     case 'polka-dots': {
@@ -1066,8 +971,8 @@ function patternDefPreview(pattern: PatternDefinition) {
       for (let y = 0; y <= size; y += 20) for (let x = 0; x <= size; x += 20) content += `<circle cx="${x}" cy="${y}" r="3" fill="${opts.primaryColor}"/>`
     }
   }
-  
-  return `<pattern id="custom-pattern" patternUnits="userSpaceOnUse" width="${size}" height="${size}">
+
+  return `<pattern id="custom-pattern-${idSuffix}" patternUnits="userSpaceOnUse" width="${size}" height="${size}">
 ${opts.backgroundColor !== 'transparent' ? `<rect width="100%" height="100%" fill="${opts.backgroundColor}"/>` : ''}
 <g opacity="${opts.opacity}">${content}</g>
 </pattern>`
@@ -1084,4 +989,3 @@ function mulberry32(a: number): () => number {
 }
 
 import { getPattern } from './FramesAndShapesCatalog'
-import { searchStickers, MAX_SEARCH_LIMIT } from '@/lib/api/megaAssets'
