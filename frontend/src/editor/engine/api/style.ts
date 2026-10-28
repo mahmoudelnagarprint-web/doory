@@ -430,6 +430,22 @@ export class StyleApi {
   }
 
   /**
+   * The selected picture as a `File`, for tools that rework it (the sticker cut-out studio). Reads the
+   * picture's current source the same way the in-place background removal does. Resolves `null` when
+   * nothing is selected or the source could not be read.
+   */
+  async selectedImageFile(): Promise<File | null> {
+    const img = this.images()[0]
+    if (!img) return null
+    try {
+      const blob = await (await fetch(img.getSrc())).blob()
+      return new File([blob], 'canvas-image.png', { type: blob.type || 'image/png' })
+    } catch {
+      return null
+    }
+  }
+
+  /**
    * Cuts the background out of the selected image and swaps the result in. `option` picks how: `device` (the
    * default) runs the in-browser model, any other option id runs on a server through the adapter's AI service.
    * Either way the cut-out is a new asset and the swap is one undo step. Resolves `false` without touching the

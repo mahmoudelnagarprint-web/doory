@@ -9,7 +9,7 @@
 import { uuid } from '@/lib/uuid'
 import type { AssetRef } from '@/types/adapter'
 import type { AudioScope, AudioTrack, AudioTrackKind, DoryDocument, TrackCredit } from '@/types/document'
-import { type CatalogueEntry, trackInputFor } from '../../audio/library'
+import { type CatalogueEntry } from '../../audio/library'
 import { AudioFileError, nameFromFile, nextVoiceoverName, validateAudioFile } from '../../audio/files'
 import { MAX_TRACKS, type NewTrackInput, type TrackPatch, createTrack, orphanedTracks, patchTrack, readTracks, sameTrack, withTracks } from '../../audio/model'
 import { type MixOptions } from '../../audio/mixer'
@@ -59,9 +59,9 @@ export class AudioApi {
     return track
   }
 
-  /** Adds a library entry: a music loop or a sound effect, to the whole design or to a page. */
+  /** Adds a library entry: a music loop or a sound effect, to the whole design or to a page. (Inlined `trackInputFor` so the audio-library module stays lazy.) */
   addFromLibrary(entry: CatalogueEntry, scope: AudioScope): AudioTrack | null {
-    return this.add(trackInputFor(entry, scope))
+    return this.add({ kind: entry.kind === 'music' ? 'music' : 'sfx', name: entry.title, src: entry.url, durationMs: entry.durationMs, scope, libraryId: entry.id })
   }
 
   /** Adds an uploaded or recorded file the adapter already stored. */

@@ -1,4 +1,4 @@
-/**
+﻿/**
  * Frames, Shapes & Patterns Catalog
  * 25+ native clipping frames, procedural organic blob generator,
  * and 25+ customizable SVG pattern generators.
@@ -8,6 +8,9 @@ import type { MaskShape } from '@/types/document'
 // ============================================
 // FRAME DEFINITIONS (25+ frames)
 // ============================================
+
+/** Catalog ids beyond the engine's `MaskShapeId` (extended frames insert via their own SVG path). */
+export type FrameShapeId = MaskShapeId | (string & {})
 
 export interface FrameDefinition {
   id: string
@@ -130,6 +133,7 @@ export function getBlobFrame(index: number): FrameDefinition {
     name: `Organic Blob ${index + 1}`,
     path: generateBlobPath({ seed, points: 8, irregularity: 0.35 + (index * 0.05), size: 42 }),
     category: 'organic',
+    generator: 'blob',
   }
 }
 
@@ -140,6 +144,7 @@ export function generateRandomBlobFrame(): FrameDefinition {
     name: 'Random Blob',
     path: generateBlobPath({ seed, points: Math.floor(6 + Math.random() * 4), irregularity: 0.3 + Math.random() * 0.3, size: 38 + Math.random() * 8 }),
     category: 'organic',
+    generator: 'blob',
   }
 }
 

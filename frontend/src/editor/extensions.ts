@@ -26,7 +26,7 @@ export {
 } from './animation/presets'
 export { registerTimelineSection, type TimelineSection, type TimelineSectionProps } from './animation/sections'
 export { playbackOf, usePlayback, usePlaybackValue, type PlaybackState } from './animation/playback'
-export { mixAudio, type MixOptions } from './audio/mixer'
+// mixAudio: import it with `import('../../audio/mixer')` when needed — it stays out of the editor's initial bundle.
 export { canEncode, encodeAudio, wavBlob, type AudioFormat, type EncodedAudio, type EncodedChunk, type EncodeOptions } from './audio/encoder'
 export { pageDurationsMs } from './audio/clock'
 export { TimelineRow } from './workspace/TimelineRow'

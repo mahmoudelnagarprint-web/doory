@@ -1140,6 +1140,7 @@ export const t = {
     pageNext: 'Next page',
     imageReplace: 'Replace image',
     imageCrop: 'Crop image',
+    imageIsolate: 'Isolate background (sticker studio)',
     fileShare: 'Share…',
     fileHistory: 'Version history…',
     filePresent: 'Present',

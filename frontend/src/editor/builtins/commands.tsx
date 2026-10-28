@@ -136,6 +136,19 @@ export function registerBuiltinCommands(): void {
   registerCommand({ id: 'page.next', label: t.cmd.pageNext, shortcut: 'PageDown', group: t.cmdGroup.pages, run: (e) => stepPage(e, 1) })
 
   registerCommand({ id: 'image.replace', label: t.cmd.imageReplace, group: t.cmdGroup.image, icon: <Replace size={18} />, run: (e) => void e.insert.pickAndReplaceImage(), enabled: ({ state }) => !state.readOnly && state.selection.ids.length === 1 && (state.selection.kinds.includes('image') || state.selection.kinds.includes('placeholder')) && !state.selection.editing })
+  registerCommand({
+    id: 'image.isolateBackground',
+    label: t.cmd.imageIsolate,
+    group: t.cmdGroup.image,
+    icon: <Scissors size={18} />,
+    run: async (e) => {
+      // The sticker studio's refine view is the editing panel for cut-outs: it opens straight on this picture.
+      const file = await e.style.selectedImageFile()
+      if (!file) return
+      e.openDialog('sticker-studio', { start: 'create', initialFile: file })
+    },
+    enabled: ({ state }) => !state.readOnly && state.selection.ids.length === 1 && state.selection.kinds.includes('image') && !state.selection.editing,
+  })
   const oneClip = ({ state }: { state: EditorEngine['state'] }): boolean => state.selection.ids.length === 1 && state.selection.kinds[0] === 'video'
   registerCommand({
     id: 'video.split',

@@ -18,6 +18,7 @@ const ShareDialog = dialogChunk(() => import('./ShareDialog').then((m) => m.Shar
 const VersionsDialog = dialogChunk(() => import('./VersionsDialog').then((m) => m.VersionsDialog))
 const BulkCreateDialog = dialogChunk(() => import('./BulkCreateDialog').then((m) => m.BulkCreateDialog))
 const UploadFontDialog = dialogChunk(() => import('../fonts/UploadFontDialog').then((m) => m.UploadFontDialog))
+const StickerStudioDialog = dialogChunk(() => import('./StickerStudioDialog').then((m) => m.StickerStudioDialog))
 
 const lazyDialog = (id: string, component: DialogDefinition['component'] & { preload(): void }): DialogDefinition => ({ id, component, preload: component.preload })
 
@@ -30,6 +31,7 @@ registerDialog(lazyDialog('share', ShareDialog))
 registerDialog(lazyDialog('versions', VersionsDialog))
 registerDialog(lazyDialog('bulk-create', BulkCreateDialog))
 registerDialog(lazyDialog('upload-font', UploadFontDialog))
+registerDialog(lazyDialog('sticker-studio', StickerStudioDialog))
 registerDialog({ id: 'presenter', component: PresenterDialog })
 
 /** Renders the dialog opened with `editor.openDialog(id, props)`. */

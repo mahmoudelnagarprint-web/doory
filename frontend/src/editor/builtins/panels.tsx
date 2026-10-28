@@ -1,4 +1,4 @@
-import { Clapperboard, Images, LayoutGrid, LayoutTemplate, Layers, Music, PaintBucket, Palette, PanelsTopLeft, Shapes, Sparkles, Type, Blend, Box } from 'lucide-react'
+import { Blend, Box, Clapperboard, Images, LayoutGrid, LayoutTemplate, Layers, Music, PaintBucket, Palette, PanelsTopLeft, Shapes, Sparkles, Sticker, Type } from 'lucide-react'
 import { ImageDrawer } from '../drawers/ImageDrawer'
 import { ShapesDrawer } from '../drawers/ShapesDrawer'
 import { TextDrawer } from '../drawers/TextDrawer'
@@ -18,6 +18,7 @@ const AudioPanel = loadable(() => import('../panels/AudioPanel').then((m) => m.A
 const VideosPanel = loadable(() => import('../panels/VideosPanel').then((m) => m.VideosPanel))
 const CommentsPanel = loadable(() => import('../panels/CommentsPanel').then((m) => m.CommentsPanel))
 const ElementsPanel = loadable(() => import('../panels/elements/ElementsPanel').then((m) => m.ElementsPanel))
+const StickersPanel = loadable(() => import('../panels/elements/StickersPanel').then((m) => m.StickersPanel))
 const AssetLibraryPanel = loadable(() => import('../panels/AssetLibraryPanel').then((m) => m.AssetLibraryPanel))
 const CollagePanel = loadable(() => import('../panels/CollagePanel').then((m) => m.CollagePanel))
 const BackgroundTextPanel = loadable(() => import('../panels/BackgroundTextPanel').then((m) => m.BackgroundTextPanel))
@@ -36,6 +37,7 @@ export function registerBuiltinPanels(): void {
   registerPanel({ id: 'templates', label: 'Templates', icon: icon(LayoutTemplate), order: 5, placement: 'sidebar', component: TemplatesPanel, preload: TemplatesPanel.preload, requires: editable })
   registerPanel({ id: 'text', label: 'Text', icon: icon(Type), order: 10, placement: 'drawer', component: TextDrawer, requires: editable, shortcut: 'T' })
   registerPanel({ id: 'shapes', label: 'Shapes', icon: icon(Shapes), order: 20, placement: 'drawer', component: ShapesDrawer, requires: editable })
+  registerPanel({ id: 'stickers', label: 'Stickers', title: 'Stickers', icon: icon(Sticker), order: 25, placement: 'sidebar', width: 360, component: StickersPanel, preload: StickersPanel.preload, requires: editable })
   registerPanel({ id: 'elements', label: 'Elements', title: 'Elements', icon: icon(Shapes), order: 30, placement: 'sidebar', width: 360, component: ElementsPanel, preload: ElementsPanel.preload, requires: editable })
   registerPanel({ id: 'assets', label: 'Assets', title: 'Asset library', icon: icon(LayoutGrid), order: 35, placement: 'sidebar', width: 360, component: AssetLibraryPanel, preload: AssetLibraryPanel.preload, requires: editable })
   registerPanel({ id: 'collage', label: 'Collage', title: 'Collage studio', icon: icon(PanelsTopLeft), order: 37, placement: 'sidebar', width: 370, component: CollagePanel, preload: CollagePanel.preload, requires: editable })

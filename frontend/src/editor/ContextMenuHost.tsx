@@ -37,7 +37,7 @@ export function ContextMenuHost() {
     const lock = itemFor(editor, 'edit.lock', lockLabel)
     if (lock) list.push(lock)
     if (selection.ids.length === 1 && canFitKind(selection.kinds[0])) list.push(...pick('arrange.fitToPage'))
-    if (selection.ids.length === 1 && selection.kinds[0] === 'image') list.push(sep('s3'), ...pick('image.replace', 'image.crop'))
+    if (selection.ids.length === 1 && selection.kinds[0] === 'image') list.push(sep('s3'), ...pick('image.isolateBackground', 'image.replace', 'image.crop'))
     else if (selection.ids.length === 1 && selection.kinds[0] === 'placeholder') list.push(sep('s3'), ...pick('image.replace'))
     else if (selection.ids.length === 1 && selection.kinds[0] === 'video') list.push(sep('s3'), ...pick('image.crop', 'video.split', 'video.replace', 'video.blurredBackground', 'video.detachAudio', 'video.background'))
     return list
