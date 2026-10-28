@@ -953,6 +953,16 @@ export class PageCanvas {
     applySlotClip(target)
     target.setCoords()
     target.set('dirty', true)
+    // In edit-frame mode the mat and inner ring companions must follow the frame in real time.
+    const companions = this.canvas.getObjects().filter((o) => {
+      const meta = asDory(o).collage
+      return meta && meta.id === d.collage?.id && meta.index === d.collage?.index && meta.role
+    })
+    for (const comp of companions) {
+      comp.set({ left: cx, top: cy, angle: slot.angle })
+      comp.setCoords()
+      comp.set('dirty', true)
+    }
     return true
   }
 
