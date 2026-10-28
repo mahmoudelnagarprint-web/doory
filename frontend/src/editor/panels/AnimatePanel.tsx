@@ -1,3 +1,4 @@
+import { animationStrings } from '../animation/strings'
 /**
  * The Animate panel (a docked sidebar): with elements selected, a grid of enter / exit / emphasis presets with live
  * previews and the settings of the chosen one; for the page, a style that animates every element one after another
@@ -15,7 +16,6 @@ import { PAGE_STYLES } from '../animation/pageStyles'
 import { type PresetDefaults, emphasisPresets, inOutPresets, transitionPresets } from '../animation/presets'
 import type { AnimDirection } from '@/types/document'
 import { EASINGS } from '../animation/easing'
-import { t } from '../strings'
 import { Button } from '../ui/Button'
 import { NumberField } from '../ui/NumberField'
 import { Segmented } from '../ui/Segmented'
@@ -24,7 +24,7 @@ import { AnimateSettings } from './AnimateSettings'
 import { AnimateThumb } from './AnimateThumb'
 import styles from './Animate.module.css'
 
-const COPY = t.animation.panel
+const COPY = animationStrings.panel
 
 type Mode = 'element' | 'page'
 

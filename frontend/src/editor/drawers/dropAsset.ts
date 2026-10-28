@@ -31,29 +31,6 @@ export async function insertDraggedAsset(
       await editor.insert.svgElement(svg, `iconify:${icon.id}`, payload.name, at, pageId)
       return
     }
-    if (payload.kind === 'pixabay') {
-      const stock = editor.adapter.services.stock
-      if (stock) {
-        try {
-          const ref = await stock.importPhoto({ provider: 'pixabay', id: payload.id })
-          await editor.insert.imageFromAsset(ref, at, pageId)
-          return
-        } catch {
-          // fallback to direct asset
-        }
-      }
-      const ref: AssetRef = {
-        id: `pixabay:${payload.id}`,
-        url: payload.url,
-        thumbUrl: payload.previewUrl,
-        width: 0,
-        height: 0,
-        name: payload.name,
-        kind: 'image',
-      }
-      await editor.insert.imageFromAsset(ref, at, pageId)
-      return
-    }
     if (payload.kind === 'frame') {
       await editor.insert.placeholder(payload.mask, at, pageId)
       return

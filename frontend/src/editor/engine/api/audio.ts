@@ -1,5 +1,5 @@
 /**
- * Audio commands: the one writer of `DoryDocument.audioTracks`. Every method is a single undoable step, does nothing
+ * Audio commands: the one writer of `DoryDocumenaudioStringsTracks`. Every method is a single undoable step, does nothing
  * in a read-only editor, and goes through `applyDocument`, so autosave, history and real-time editing treat the
  * track list like any other part of the document. The player, the panel and the timeline only read.
  *
@@ -14,10 +14,10 @@ import { AudioFileError, nameFromFile, nextVoiceoverName, validateAudioFile } fr
 import { MAX_TRACKS, type NewTrackInput, type TrackPatch, createTrack, orphanedTracks, patchTrack, readTracks, sameTrack, withTracks } from '../../audio/model'
 import { type MixOptions, mixAudio } from '../../audio/mixer'
 import { SourceStore } from '../../audio/sources'
-import { t } from '../../strings'
+import { audioStrings } from '../../audio/strings'
 import type { EditorEngine } from '../editor'
 
-const labels = t.audio.history
+const labels = audioStrings.history
 
 export class AudioApi {
   /** Decoded sounds of this editor, shared by the waveforms, the preview, the presenter and the mixdown. */
@@ -50,12 +50,12 @@ export class AudioApi {
     if (this.engine.readOnly) return null
     const tracks = this.tracks()
     if (tracks.length >= MAX_TRACKS) {
-      this.engine.toast(t.audio.errors.limit, 'error')
+      this.engine.toast(audioStrings.errors.limit, 'error')
       return null
     }
     const track = 'trimStartMs' in input ? input : createTrack(input)
     this.write([...tracks, track], labels.add)
-    this.engine.announce(t.audio.announce.added(track.name))
+    this.engine.announce(audioStrings.announce.added(track.name))
     return track
   }
 
@@ -88,7 +88,7 @@ export class AudioApi {
     const track = this.get(id)
     if (!track) return
     this.update(id, { muted }, muted ? labels.mute : labels.unmute)
-    this.engine.announce(muted ? t.audio.announce.muted(track.name) : t.audio.announce.unmuted(track.name))
+    this.engine.announce(muted ? audioStrings.announce.muted(track.name) : audioStrings.announce.unmuted(track.name))
   }
 
   /** Moves the track to another scope; its start offset is kept. */
@@ -102,14 +102,14 @@ export class AudioApi {
     const track = tracks.find((item) => item.id === id)
     if (!track) return
     this.write(tracks.filter((item) => item.id !== id), labels.remove)
-    this.engine.announce(t.audio.announce.removed(track.name))
+    this.engine.announce(audioStrings.announce.removed(track.name))
   }
 
   duplicate(id: string): AudioTrack | null {
     const track = this.get(id)
     if (!track || this.engine.readOnly) return null
     if (this.tracks().length >= MAX_TRACKS) {
-      this.engine.toast(t.audio.errors.limit, 'error')
+      this.engine.toast(audioStrings.errors.limit, 'error')
       return null
     }
     const copy: AudioTrack = { ...track, id: uuid(), name: `${track.name} copy`.slice(0, 200), muted: false }
@@ -131,7 +131,7 @@ export class AudioApi {
 
   /** Stores a file with the adapter and reads its length, without adding a track (the Uploads tab lists it first). */
   async upload(file: File | Blob, name?: string): Promise<{ ref: AssetRef; durationMs: number }> {
-    if (this.engine.readOnly) throw new AudioFileError(t.audio.errors.readOnly, 'type')
+    if (this.engine.readOnly) throw new AudioFileError(audioStrings.errors.readOnly, 'type')
     const label = name ?? nameFromFile(file instanceof File ? file : { name: 'Audio' })
     if (file instanceof File) validateAudioFile(file)
     const ref = await this.engine.adapter.uploadAsset(file, { name: label })
@@ -143,10 +143,10 @@ export class AudioApi {
    * (`AudioFileError`, `AudioLoadError`) and leaves the design alone when anything fails.
    */
   async addFile(file: File | Blob, options: { kind?: AudioTrackKind; name?: string; scope?: AudioScope } = {}): Promise<AudioTrack> {
-    if (this.engine.readOnly) throw new AudioFileError(t.audio.errors.readOnly, 'type')
+    if (this.engine.readOnly) throw new AudioFileError(audioStrings.errors.readOnly, 'type')
     const { ref, durationMs } = await this.upload(file, options.name)
     const track = this.addFromAsset(ref, options.kind ?? 'upload', durationMs, options.scope)
-    if (!track) throw new AudioFileError(t.audio.errors.limit, 'size')
+    if (!track) throw new AudioFileError(audioStrings.errors.limit, 'size')
     return track
   }
 

@@ -1,3 +1,4 @@
+import { animationStrings } from '../animation/strings'
 import { act, render, screen, waitFor } from '@testing-library/react'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { createRef } from 'react'
@@ -7,7 +8,6 @@ import { enter, rectObject, setupEditor } from '../animation/testing'
 import { previewMultiplier } from '../animation/timelineMath'
 import { EditorProvider } from '../EditorProvider'
 import type { EditorEngine } from '../engine/editor'
-import { t } from '../strings'
 import { TimelinePreview } from './TimelinePreview'
 
 async function open() {
@@ -47,7 +47,7 @@ describe('TimelinePreview', () => {
     engine = ctx.engine
     expect(screen.queryByTestId('ed-preview')).toBeNull()
     await act(async () => playbackOf(ctx.engine).seek(0, 1000))
-    expect(screen.getByRole('region', { name: t.animation.preview.region })).toBeInTheDocument()
+    expect(screen.getByRole('region', { name: animationStrings.preview.region })).toBeInTheDocument()
   })
 
   it('draws the page at the playhead, with the animated element hidden before its start and in place after its end', async () => {
@@ -149,7 +149,7 @@ describe('TimelinePreview', () => {
     await act(async () => playback.play(1000))
     await act(async () => screen.getByTestId('ed-preview-toggle').click())
     expect(playback.state.playing).toBe(false)
-    expect(screen.getByTestId('ed-preview-toggle')).toHaveAccessibleName(t.animation.preview.play)
+    expect(screen.getByTestId('ed-preview-toggle')).toHaveAccessibleName(animationStrings.preview.play)
     await act(async () => screen.getByTestId('ed-preview-stop').click())
     expect(playback.state.active).toBe(false)
   })
@@ -177,8 +177,8 @@ describe('TimelinePreview', () => {
     engine = ctx.engine
     await act(async () => playbackOf(ctx.engine).seek(0, 1000))
     expect(screen.getByTestId('ed-preview-frame')).toHaveAttribute('role', 'img')
-    expect(screen.getByTestId('ed-preview-frame')).toHaveAttribute('aria-label', t.animation.preview.page(1))
-    expect(ctx.engine.state.announcement).toBe(t.animation.preview.started(1))
+    expect(screen.getByTestId('ed-preview-frame')).toHaveAttribute('aria-label', animationStrings.preview.page(1))
+    expect(ctx.engine.state.announcement).toBe(animationStrings.preview.started(1))
   })
 })
 

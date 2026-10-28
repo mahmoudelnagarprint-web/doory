@@ -1,3 +1,4 @@
+import { animationStrings } from '../animation/strings'
 /** The settings of one animation in the Animate panel: direction, times, easing, strength, text unit and repeat. */
 import { ArrowDown, ArrowLeft, ArrowRight, ArrowUp, ZoomIn, ZoomOut } from 'lucide-react'
 import type { ReactNode } from 'react'
@@ -5,7 +6,6 @@ import type { Anim, AnimDirection, AnimEasing, AnimTextUnit } from '@/types/docu
 import { EASINGS } from '../animation/easing'
 import { DELAY_RANGE, DURATION_RANGE, type AnimSlot, TEXT_UNITS } from '../animation/model'
 import { directionsOf, supportsTextUnits } from '../animation/ops'
-import { t } from '../strings'
 import { NumberField } from '../ui/NumberField'
 import { Segmented } from '../ui/Segmented'
 import { Select } from '../ui/Select'
@@ -13,7 +13,7 @@ import { Slider } from '../ui/Slider'
 import { Switch } from '../ui/Switch'
 import styles from './Animate.module.css'
 
-const COPY = t.animation.panel
+const COPY = animationStrings.panel
 
 /** An arrow points the way the element travels: from the left it moves right. */
 const DIRECTION_ICON: Record<AnimDirection, ReactNode> = {

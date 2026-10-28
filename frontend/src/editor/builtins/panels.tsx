@@ -6,7 +6,6 @@ import { BackgroundPanel } from '../panels/BackgroundPanel'
 import { CommentsButtonIcon } from '../panels/CommentsButtonIcon'
 import { LayersPanel } from '../panels/LayersPanel'
 import { registerPanel } from '../panels/registry'
-import { t } from '../strings'
 import { loadable } from '../ui/loadable'
 import { LazyCommentPins } from '../workspace/CommentPinsLoader'
 
@@ -32,22 +31,22 @@ const icon = (Glyph: typeof Type) => <Glyph size={20} strokeWidth={1.8} aria-hid
  */
 export function registerBuiltinPanels(): void {
   const editable = ({ state }: { state: { readOnly: boolean } }): boolean => !state.readOnly
-  registerPanel({ id: 'templates', label: t.rail.templates, icon: icon(LayoutTemplate), order: 5, placement: 'sidebar', component: TemplatesPanel, preload: TemplatesPanel.preload, requires: editable })
-  registerPanel({ id: 'text', label: t.rail.text, icon: icon(Type), order: 10, placement: 'drawer', component: TextDrawer, requires: editable, shortcut: 'T' })
-  registerPanel({ id: 'shapes', label: t.rail.shapes, icon: icon(Shapes), order: 20, placement: 'drawer', component: ShapesDrawer, requires: editable })
+  registerPanel({ id: 'templates', label: 'Templates', icon: icon(LayoutTemplate), order: 5, placement: 'sidebar', component: TemplatesPanel, preload: TemplatesPanel.preload, requires: editable })
+  registerPanel({ id: 'text', label: 'Text', icon: icon(Type), order: 10, placement: 'drawer', component: TextDrawer, requires: editable, shortcut: 'T' })
+  registerPanel({ id: 'shapes', label: 'Shapes', icon: icon(Shapes), order: 20, placement: 'drawer', component: ShapesDrawer, requires: editable })
   registerPanel({ id: 'elements', label: 'Elements', title: 'Elements', icon: icon(Shapes), order: 30, placement: 'sidebar', width: 360, component: ElementsPanel, preload: ElementsPanel.preload, requires: editable })
-  registerPanel({ id: 'assets', label: t.rail.assets, title: t.assetLibrary.title, icon: icon(LayoutGrid), order: 35, placement: 'sidebar', width: 360, component: AssetLibraryPanel, preload: AssetLibraryPanel.preload, requires: editable })
+  registerPanel({ id: 'assets', label: 'Assets', title: 'Asset library', icon: icon(LayoutGrid), order: 35, placement: 'sidebar', width: 360, component: AssetLibraryPanel, preload: AssetLibraryPanel.preload, requires: editable })
   registerPanel({ id: 'collage', label: 'Collage', title: 'Collage studio', icon: icon(PanelsTopLeft), order: 37, placement: 'sidebar', width: 370, component: CollagePanel, preload: CollagePanel.preload, requires: editable })
-  registerPanel({ id: 'image', label: t.rail.image, icon: icon(Images), order: 40, placement: 'drawer', component: ImageDrawer, requires: editable })
-  registerPanel({ id: 'videos', label: t.rail.videos, icon: icon(Clapperboard), order: 45, placement: 'drawer', component: VideosPanel, preload: VideosPanel.preload, requires: editable })
-  registerPanel({ id: 'background', label: t.rail.background, icon: icon(PaintBucket), order: 60, placement: 'drawer', component: BackgroundPanel, requires: editable })
-  registerPanel({ id: 'brand', label: t.rail.brand, icon: icon(Palette), order: 70, placement: 'sidebar', component: BrandPanel, preload: BrandPanel.preload, requires: ({ state }) => !state.readOnly && state.mode !== 'shared-edit' })
-  registerPanel({ id: 'animate', label: t.rail.animate, title: t.animation.panel.title, icon: icon(Sparkles), order: 75, placement: 'sidebar', component: AnimatePanel, preload: AnimatePanel.preload, requires: editable })
-  registerPanel({ id: 'audio', label: t.rail.audio, title: t.audio.title, icon: icon(Music), order: 76, placement: 'sidebar', component: AudioPanel, preload: AudioPanel.preload, readOnly: true })
-  registerPanel({ id: 'layers', label: t.rail.layers, icon: icon(Layers), order: 80, placement: 'sidebar', component: LayersPanel, readOnly: true })
+  registerPanel({ id: 'image', label: 'Images', icon: icon(Images), order: 40, placement: 'drawer', component: ImageDrawer, requires: editable })
+  registerPanel({ id: 'videos', label: 'Videos', icon: icon(Clapperboard), order: 45, placement: 'drawer', component: VideosPanel, preload: VideosPanel.preload, requires: editable })
+  registerPanel({ id: 'background', label: 'Background', icon: icon(PaintBucket), order: 60, placement: 'drawer', component: BackgroundPanel, requires: editable })
+  registerPanel({ id: 'brand', label: 'Brand', icon: icon(Palette), order: 70, placement: 'sidebar', component: BrandPanel, preload: BrandPanel.preload, requires: ({ state }) => !state.readOnly && state.mode !== 'shared-edit' })
+  registerPanel({ id: 'animate', label: 'Animate', title: 'Animate', icon: icon(Sparkles), order: 75, placement: 'sidebar', component: AnimatePanel, preload: AnimatePanel.preload, requires: editable })
+  registerPanel({ id: 'audio', label: 'Audio', title: 'Audio', icon: icon(Music), order: 76, placement: 'sidebar', component: AudioPanel, preload: AudioPanel.preload, readOnly: true })
+  registerPanel({ id: 'layers', label: 'Layers', icon: icon(Layers), order: 80, placement: 'sidebar', component: LayersPanel, readOnly: true })
   registerPanel({
     id: 'comments',
-    label: t.rail.comments,
+    label: 'Comments',
     icon: <CommentsButtonIcon />,
     order: 90,
     placement: 'sidebar',

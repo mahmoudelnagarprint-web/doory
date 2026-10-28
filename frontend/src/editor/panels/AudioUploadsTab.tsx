@@ -1,3 +1,4 @@
+import { audioStrings } from '../audio/strings'
 /**
  * The Uploads tab: bring an audio file (the picker or drag and drop), see the files you have uploaded or recorded, play
  * them, add them to the design or delete them. A guest's files stay in the browser (IndexedDB) until the design is saved
@@ -14,7 +15,6 @@ import { AUDIO_ACCEPT, AudioFileError, audioFilesFrom } from '../audio/files'
 import { AudioLoadError } from '../audio/sources'
 import { audioRuntime, usePreview } from '../audio/runtime'
 import { uploadsOf, useUploads } from '../audio/uploads'
-import { t } from '../strings'
 import { Button, IconButton } from '../ui/Button'
 import styles from './Audio.module.css'
 
@@ -39,7 +39,7 @@ function UploadRow({ item, used, canWrite, onAdd, onRemove }: { item: Item; used
   return (
     <li className={styles.row} data-kind="upload" data-testid={`audio-upload-${item.ref.id}`}>
       <IconButton
-        label={playing ? t.audio.library.pause(item.ref.name) : t.audio.library.preview(item.ref.name)}
+        label={playing ? audioStrings.library.pause(item.ref.name) : audioStrings.library.preview(item.ref.name)}
         variant="soft"
         className={styles.rowPlay}
         tooltip={false}
@@ -53,24 +53,24 @@ function UploadRow({ item, used, canWrite, onAdd, onRemove }: { item: Item; used
         <div className={styles.rowTitle}>
           <span className={styles.rowName}>{item.ref.name}</span>
           <span className={styles.rowMeta}>
-            {[item.durationMs ? formatSeconds(item.durationMs) : '', formatBytes(item.size), used ? t.audio.uploads.inUse : ''].filter(Boolean).join(' · ')}
+            {[item.durationMs ? formatSeconds(item.durationMs) : '', formatBytes(item.size), used ? audioStrings.uploads.inUse : ''].filter(Boolean).join(' · ')}
           </span>
         </div>
         {preview.key === key && preview.error ? (
           <p className={styles.warn} role="alert">
-            {t.audio.library.previewFailed}
+            {audioStrings.library.previewFailed}
           </p>
         ) : null}
       </div>
       {canWrite ? (
         <div className={styles.rowActions}>
-          <Button size="sm" variant="soft" icon={<Plus size={13} aria-hidden="true" />} aria-label={t.audio.uploads.addLabel(item.ref.name)} data-testid="audio-upload-add-design" onClick={() => onAdd('design')}>
-            {t.audio.library.addToDesign}
+          <Button size="sm" variant="soft" icon={<Plus size={13} aria-hidden="true" />} aria-label={audioStrings.uploads.addLabel(item.ref.name)} data-testid="audio-upload-add-design" onClick={() => onAdd('design')}>
+            {audioStrings.library.addToDesign}
           </Button>
           <Button size="sm" data-testid="audio-upload-add-page" onClick={() => onAdd('page')}>
-            {t.audio.library.addToPage}
+            {audioStrings.library.addToPage}
           </Button>
-          <IconButton label={t.audio.uploads.remove(item.ref.name)} size="sm" disabled={used} className={styles.rowDelete} data-testid="audio-upload-delete" onClick={onRemove}>
+          <IconButton label={audioStrings.uploads.remove(item.ref.name)} size="sm" disabled={used} className={styles.rowDelete} data-testid="audio-upload-delete" onClick={onRemove}>
             <Trash2 size={14} />
           </IconButton>
         </div>
@@ -108,7 +108,7 @@ export function AudioUploadsTab() {
         const { ref, durationMs } = await editor.audio.upload(file)
         store.add({ ref, durationMs, size: file.size })
       } catch (error) {
-        setProblem(error instanceof AudioFileError || error instanceof AudioLoadError ? error.message : error instanceof Error && error.message ? error.message : t.audio.errors.upload)
+        setProblem(error instanceof AudioFileError || error instanceof AudioLoadError ? error.message : error instanceof Error && error.message ? error.message : audioStrings.errors.upload)
       } finally {
         store.end()
       }
@@ -122,7 +122,7 @@ export function AudioUploadsTab() {
         const durationMs = item.durationMs ?? (await editor.audio.measure(item.ref))
         editor.audio.addFromAsset(item.ref, 'upload', durationMs, target)
       } catch (error) {
-        editor.toast(error instanceof AudioLoadError ? error.message : t.audio.errors.unreadable, 'error')
+        editor.toast(error instanceof AudioLoadError ? error.message : audioStrings.errors.unreadable, 'error')
       }
     })()
   }
@@ -133,9 +133,9 @@ export function AudioUploadsTab() {
       await editor.adapter.services.assets.remove(item.ref.id)
       store.remove(item.ref.id)
       setRemoved((cur) => new Set(cur).add(item.ref.id))
-      editor.toast(t.audio.uploads.removed, 'info')
+      editor.toast(audioStrings.uploads.removed, 'info')
     } catch {
-      setProblem(t.audio.uploads.removeFailed)
+      setProblem(audioStrings.uploads.removeFailed)
     }
   }
 
@@ -165,8 +165,8 @@ export function AudioUploadsTab() {
             }}
           >
             <Upload size={20} aria-hidden="true" />
-            <span>{t.audio.uploads.drop}</span>
-            <small>{t.audio.uploads.hint}</small>
+            <span>{audioStrings.uploads.drop}</span>
+            <small>{audioStrings.uploads.hint}</small>
           </button>
           <input
             ref={input}
@@ -174,7 +174,7 @@ export function AudioUploadsTab() {
             hidden
             multiple
             accept={AUDIO_ACCEPT}
-            aria-label={t.audio.uploads.choose}
+            aria-label={audioStrings.uploads.choose}
             data-testid="audio-upload-input"
             onChange={(e) => {
               const files = Array.from(e.target.files ?? [])
@@ -182,12 +182,12 @@ export function AudioUploadsTab() {
               if (files.length > 0) void upload(files)
             }}
           />
-          {mode === 'guest' ? <p className={styles.fine}>{t.audio.uploads.guestHint}</p> : null}
+          {mode === 'guest' ? <p className={styles.fine}>{audioStrings.uploads.guestHint}</p> : null}
         </>
       )}
       {session.busy > 0 ? (
         <p className={styles.note} role="status" data-testid="audio-uploading">
-          {session.reading ? t.audio.uploads.decoding(session.reading) : t.audio.uploads.uploading(session.busy)}
+          {session.reading ? audioStrings.uploads.decoding(session.reading) : audioStrings.uploads.uploading(session.busy)}
         </p>
       ) : null}
       {problem ? (
@@ -197,7 +197,7 @@ export function AudioUploadsTab() {
       ) : null}
       {items.length > 0 ? (
         <>
-          <h3 className={styles.sectionTitle}>{t.audio.uploads.yours}</h3>
+          <h3 className={styles.sectionTitle}>{audioStrings.uploads.yours}</h3>
           <ul className={styles.rows} data-testid="audio-upload-list">
             {items.map((item) => (
               <UploadRow key={item.ref.id} item={item} used={usedIds.has(item.ref.id) || usedIds.has(item.ref.url)} canWrite={!readOnly} onAdd={(scope) => add(item, scope)} onRemove={() => void remove(item)} />
@@ -207,17 +207,17 @@ export function AudioUploadsTab() {
       ) : null}
       {list.error && items.length === 0 ? (
         <p className={styles.warn} role="alert">
-          {t.audio.uploads.loadFailed}
+          {audioStrings.uploads.loadFailed}
         </p>
       ) : null}
       {list.hasMore && list.items.length > 0 ? (
         <Button size="sm" variant="ghost" onClick={list.loadMore} disabled={list.loading}>
-          {t.audio.uploads.loadMore}
+          {audioStrings.uploads.loadMore}
         </Button>
       ) : null}
       {!list.loading && !list.error && items.length === 0 ? (
         <p className={styles.empty} data-testid="audio-upload-empty">
-          {t.audio.uploads.none}
+          {audioStrings.uploads.none}
         </p>
       ) : null}
     </div>

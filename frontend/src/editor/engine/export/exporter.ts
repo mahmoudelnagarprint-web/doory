@@ -5,8 +5,6 @@ import { canvasToBlob, renderPageToCanvas } from '../render'
 import { type ExportFile, type ExportOptions, type ExportStage, exportFormats } from './registry'
 import { type FileNaming, type FilenameStyle, unixNow } from './filenames'
 import { bundleFiles } from './zip'
-import './formats'
-import './video/formats'
 
 export type PageSelection = { kind: 'all' } | { kind: 'current' } | { kind: 'pages'; pages: number[] }
 

@@ -1,3 +1,4 @@
+import { animationStrings } from '../animation/strings'
 import { act, fireEvent, render, screen, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
@@ -8,13 +9,12 @@ import { enter, rectObject, setupEditor, textObject } from '../animation/testing
 import { EditorProvider } from '../EditorProvider'
 import { installPointerEvents } from '../panels/commentsTesting'
 import type { EditorEngine } from '../engine/editor'
-import { t } from '../strings'
 import { TimelineHost } from './Timeline'
 import { TimelineRow } from './TimelineRow'
 import { isTimelineOpenForTest } from './timelineTesting'
 import { setTimelineView, toggleTimeline } from './timelineVisibility'
 
-const COPY = t.animation.timeline
+const COPY = animationStrings.timeline
 
 class FakeObserver {
   observe(): void {}

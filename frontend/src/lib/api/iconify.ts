@@ -36,16 +36,19 @@ export function iconPreviewUrl(id: string, height = 96): string {
 export interface IconifySearchOptions {
   start?: number
   limit?: number
+  /** Restrict the search to these collection prefixes, e.g. colored emoji sets. */
+  prefixes?: readonly string[]
   signal?: AbortSignal
 }
 
 export async function searchIcons(
   query: string,
-  { start = 0, limit = ICONIFY_PAGE_SIZE, signal }: IconifySearchOptions = {},
+  { start = 0, limit = ICONIFY_PAGE_SIZE, prefixes, signal }: IconifySearchOptions = {},
 ): Promise<IconifySearchPage> {
   const text = query.trim()
   if (!text) return { icons: [], total: 0, nextStart: null }
   const params = new URLSearchParams({ query: text, start: String(start), limit: String(limit) })
+  if (prefixes && prefixes.length > 0) params.set('prefixes', prefixes.join(','))
   const res = await fetch(`${API}/search?${params.toString()}`, {
     signal,
     credentials: 'omit',

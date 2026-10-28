@@ -6,6 +6,7 @@
 import { createStore, type StoreApi } from 'zustand/vanilla'
 import type { AssetRef, EditorMode, SaveState } from '@/types/adapter'
 import type { DocObject, DoryDocument } from '@/types/document'
+import type { CollageStageMode } from '../engine/collage/stage'
 import type { ToolId } from '../engine/pageCanvas'
 import type { ZoomMode } from '../engine/zoom'
 
@@ -93,6 +94,8 @@ export interface UiState {
   spaceDown: boolean
   /** True below the desktop breakpoint: panels render as a bottom sheet. */
   compact: boolean
+  /** What dragging a collage photo does (see engine/collage/stage.ts). */
+  stageMode: CollageStageMode
 }
 
 /** A comment being written at a spot of a page, not sent yet. `x` and `y` are in that page's own pixels. */
@@ -239,6 +242,7 @@ export function createEditorStore(init: StoreInit): EditorStore {
       cropping: null,
       spaceDown: false,
       compact: false,
+      stageMode: 'pan-photo',
     },
     recentColors: prefs.recentColors ?? [],
     recentFonts: prefs.recentFonts ?? [],

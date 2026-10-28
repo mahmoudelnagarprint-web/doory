@@ -5,7 +5,7 @@ import { installImageStub } from '../test/imageStub'
 import { EditorEngine } from './editor'
 import { asDory } from './objects/dory'
 import { collageGroups, collageMetaOf, readCollageMeta, slotOfDocObject } from './collage/model'
-import type { CollageMeta } from '@/types/document'
+import type { CollageMeta, SlotSpec } from '@/types/document'
 
 function setup(width = 559, height = 794) {
   const handle = createMemoryAdapter()
@@ -124,8 +124,7 @@ describe('Smart Collage Studio engine', () => {
     engine.dispose()
   })
 
-  it('survives a reload with its collage metadata and frame companions', async () => {
-    const { engine, pageId, handle } = setup()
+  it('survives a reload with its collage metadata and frame companions', async () => {    const { engine, pageId, handle } = setup()
     const view = await engine.whenView(pageId)
     const id = await engine.collage.create({ template: 'arch' })
     const first = slots(engine, id)[0]
@@ -153,5 +152,49 @@ describe('Smart Collage Studio engine', () => {
     }
     again.dispose()
     void view
+  })
+
+  it('changes a frame shape and clips the filled photo to it', async () => {
+    const { engine, pageId } = setup()
+    await engine.whenView(pageId)
+    const id = await engine.collage.create()
+    const first = slots(engine, id)[0]
+    engine.collage.setSlotMask(first.id, 'circle')
+    expect(objectsOf(engine).find((object) => object.id === first.id)?.maskShape).toBe('circle')
+    await engine.collage.replaceSlotWithAsset(pageId, first.id, await asset(engine))
+    const filled = () => objectsOf(engine).find((object) => object.id === first.id)
+    expect((filled()?.slot as SlotSpec).mask).toBe('circle')
+    engine.collage.setSlotMask(first.id, 'hexagon')
+    expect((filled()?.slot as SlotSpec).mask).toBe('hexagon')
+    engine.collage.setSlotMask(first.id, null)
+    expect((filled()?.slot as SlotSpec).mask).toBeUndefined()
+    engine.dispose()
+  })
+
+  it('swaps two photos with their treatments and keeps each frame in place', async () => {
+    vi.spyOn(FabricImage.prototype, 'applyFilters').mockImplementation(() => undefined)
+    const { engine, pageId } = setup()
+    await engine.whenView(pageId)
+    const id = await engine.collage.create()
+    const [a, b] = slots(engine, id)
+    await engine.collage.replaceSlotWithAsset(pageId, a.id, await asset(engine))
+    await engine.collage.replaceSlotWithAsset(pageId, b.id, await asset(engine))
+    const beforeA = { ...objectsOf(engine).find((object) => object.id === a.id) }
+    const beforeB = { ...objectsOf(engine).find((object) => object.id === b.id) }
+    engine.collage.setSlotFilter(a.id, 'saturation', 0.25)
+    const treatment = objectsOf(engine).find((object) => object.id === a.id)?.filterSpecs
+    await engine.collage.swapSlots(a.id, b.id)
+
+    const afterA = objectsOf(engine).find((object) => object.id === a.id)
+    const afterB = objectsOf(engine).find((object) => object.id === b.id)
+    expect(afterA?.docSrc).toBe(beforeB.docSrc)
+    expect(afterB?.docSrc).toBe(beforeA.docSrc)
+    expect(afterA?.assetId).toBe(beforeB.assetId)
+    expect(afterA?.slot).toEqual(beforeA.slot)
+    expect(afterB?.slot).toEqual(beforeB.slot)
+    expect(afterA?.filterSpecs).toBeUndefined()
+    expect(afterB?.filterSpecs).toEqual(treatment)
+    expect(objectsOf(engine)).toHaveLength(12)
+    engine.dispose()
   })
 })

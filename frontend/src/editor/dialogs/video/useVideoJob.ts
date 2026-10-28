@@ -1,7 +1,6 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
 import type { DocPage } from '@/types/document'
 import type { EditorEngine } from '../../engine/editor'
-import { hostOf } from '../../engine/export/video/formats'
 import type { VideoOptions } from '../../engine/export/video/options'
 import type { VideoProgress, VideoResult } from '../../engine/export/video/types'
 import { t } from '../../strings'
@@ -49,6 +48,7 @@ export function useVideoJob(editor: EditorEngine) {
       setState({ phase: 'working', progress: null })
       try {
         const { runVideoExport } = await import('../../engine/export/video/pipeline')
+        const { hostOf } = await import('../../engine/export/video/host')
         const result = await runVideoExport({
           host: hostOf(editor),
           document: editor.state.doc,

@@ -1,3 +1,4 @@
+import { animationStrings } from '../animation/strings'
 /**
  * The timeline on a narrow screen: a list of the animated elements with a chip for each animation, and a slider for
  * the playhead. Touching an element selects it; the times themselves are set in the Animate panel.
@@ -9,7 +10,6 @@ import { usePlaybackValue } from '../animation/playback'
 import { objectName, presetLabel, slotLabel } from '../animation/labels'
 import type { TimelineSection } from '../animation/sections'
 import { type Lane, formatTime } from '../animation/timelineMath'
-import { t } from '../strings'
 import styles from './Timeline.module.css'
 
 const SLOT_ICON = { enter: LogIn, exit: LogOut, emphasis: Sparkles } as const
@@ -32,7 +32,7 @@ export function TimelineList({ lanes, sections, pageId, readOnly, selected, leng
       <input
         type="range"
         className={styles.scrub}
-        aria-label={t.animation.timeline.scrub}
+        aria-label={animationStrings.timeline.scrub}
         min={0}
         max={Math.round(lengthMs)}
         step={100}
@@ -44,7 +44,7 @@ export function TimelineList({ lanes, sections, pageId, readOnly, selected, leng
         onPointerUp={() => onScrub(0, 'end')}
         onKeyUp={() => onScrub(0, 'end')}
       />
-      <ul className={styles.items} aria-label={t.animation.timeline.list}>
+      <ul className={styles.items} aria-label={animationStrings.timeline.list}>
         {lanes.map((lane) => {
           const name = objectName(lane.object)
           return (
@@ -55,7 +55,7 @@ export function TimelineList({ lanes, sections, pageId, readOnly, selected, leng
               <span className={styles.chips}>
                 {lane.spans.map((span) => {
                   const Icon = SLOT_ICON[span.slot as AnimSlot]
-                  const text = t.animation.timeline.chip(slotLabel(span.slot), presetLabel(span.slot, span.anim.preset), formatTime(span.startMs, true), formatTime(span.endMs, true))
+                  const text = animationStrings.timeline.chip(slotLabel(span.slot), presetLabel(span.slot, span.anim.preset), formatTime(span.startMs, true), formatTime(span.endMs, true))
                   return (
                     <button key={span.slot} type="button" className={styles.chip} data-slot={span.slot} title={text} aria-label={text} onClick={() => editor.select([lane.object.id])}>
                       <Icon size={12} aria-hidden="true" />

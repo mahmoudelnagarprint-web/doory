@@ -1,3 +1,4 @@
+import { audioStrings } from '../audio/strings'
 import { ChevronLeft, ChevronRight, Keyboard, Maximize, Minimize, MonitorOff, MonitorPlay, MousePointer2, Pause, Play, Repeat, RotateCcw, StickyNote, Timer, Volume2, VolumeX, X } from 'lucide-react'
 import type { ReactNode } from 'react'
 import type { SlideshowAction, SlideshowState } from '../presenter/machine'
@@ -104,7 +105,7 @@ export function PresenterControls(p: PresenterControlsProps) {
           <MonitorOff size={18} aria-hidden="true" />
         </Control>
         {p.sound ? (
-          <Control label={t.audio.presenter.sound} shortcut="M" pressed={!p.sound.muted} testId="present-sound" onClick={() => p.sound?.setMuted(!p.sound.muted)}>
+          <Control label={audioStrings.presenter.sound} shortcut="M" pressed={!p.sound.muted} testId="present-sound" onClick={() => p.sound?.setMuted(!p.sound.muted)}>
             {p.sound.muted ? <VolumeX size={18} aria-hidden="true" /> : <Volume2 size={18} aria-hidden="true" />}
           </Control>
         ) : null}

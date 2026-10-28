@@ -7,10 +7,10 @@ import { asDory } from '../engine/objects/dory'
 import { FILTER_PRESETS } from '../engine/objects/filters'
 import { COLLAGE_LAYOUTS, defaultCollageStyle, resolveLayout } from '../engine/collage/layout'
 import { collageGroups, collageInSelection, slotOfDocObject } from '../engine/collage/model'
+import { SLOT_SHAPES, slotClipStyle } from '../engine/collage/shapeStyle'
 import type { CollageFont, CollageTextVariant } from '../engine/api/collage'
 import { useLocalAssets } from '../hooks/useLocalAssets'
 import { useResolvedSrc } from '../hooks/useResolvedSrc'
-import { t } from '../strings'
 import { collageStrings } from '../strings/collage'
 import { NumberField } from '../ui/NumberField'
 import { Slider } from '../ui/Slider'
@@ -73,11 +73,12 @@ function SlotThumb({ src, index, filled }: { src?: string; index: number; filled
   )
 }
 
-/** The Atelier panel: layout, photos, mat/frame, Arabic type and transparent stickers for one collage. */
+/** The Smart Collage panel: layout, photos, mat/frame, Arabic type and transparent stickers for one collage. */
 export function CollagePanel(_props: PanelProps) {
   const editor = useEditor()
   const activePageId = useEditorState((s) => s.activePageId)
   const selection = useEditorState((s) => s.selection)
+  const stageMode = useEditorState((s) => s.ui.stageMode)
   const doc = useDocument()
   const page = doc.pages.find((p) => p.id === activePageId)
   const groups = useMemo(() => collageGroups(page?.objects ?? []), [page?.objects])
@@ -100,6 +101,8 @@ export function CollagePanel(_props: PanelProps) {
   const slotFrame = liveSlotData ?? (activeSlot ? slotOfDocObject(activeSlot) : undefined)
   const panX = slotFrame && liveCentre ? Math.round(liveCentre.x - slotFrame.cx) : 0
   const panY = slotFrame && liveCentre ? Math.round(liveCentre.y - slotFrame.cy) : 0
+  const activeMask = slotFrame?.mask
+  const shapeChoice: string | null = activeMask && typeof activeMask === 'string' ? activeMask : null
   const pageSize = editor.pageSizeOf(activePageId)
   const step = Math.max(2, Math.round(Math.min(pageSize.width, pageSize.height) * 0.01))
   const filters = (activeSlot?.filterSpecs as ImageFilterSpec[] | undefined) ?? []
@@ -141,7 +144,7 @@ export function CollagePanel(_props: PanelProps) {
     return (
       <div className={styles.panel} data-testid="collage-panel">
         <div className={styles.intro}>
-          <span className={styles.atelierMark}>ATELIER</span>
+          <span className={styles.studioMark}>STUDIO</span>
           <h3>{collageStrings.intro}</h3>
           <p>{collageStrings.introHint}</p>
         </div>
@@ -173,7 +176,7 @@ export function CollagePanel(_props: PanelProps) {
     <div className={styles.panel} data-testid="collage-panel">
       <div className={styles.head}>
         <div>
-          <span className={styles.atelierMark}>ATELIER</span>
+          <span className={styles.studioMark}>STUDIO</span>
           <strong>{active.name}</strong>
         </div>
         <span className={styles.badge}>{active.slots.length} {collageStrings.slots}</span>
@@ -236,6 +239,17 @@ export function CollagePanel(_props: PanelProps) {
 
         {tab === 'slots' ? (
           <>
+            <div className={styles.sectionTitle}>{collageStrings.stage}</div>
+            <div className={styles.segmented} role="group" aria-label={collageStrings.stage}>
+              <button type="button" className={styles.chip} aria-pressed={stageMode === 'pan-photo'} onClick={() => editor.patchUi({ stageMode: 'pan-photo' })}>
+                {collageStrings.panPhoto}
+              </button>
+              <button type="button" className={styles.chip} aria-pressed={stageMode === 'edit-frame'} onClick={() => editor.patchUi({ stageMode: 'edit-frame' })}>
+                {collageStrings.editFrame}
+              </button>
+            </div>
+            <p className={styles.hint}>{collageStrings.stageHint}</p>
+
             <div className={styles.sectionTitle}>{collageStrings.slots}</div>
             <div className={styles.slotGrid}>
               {active.slots.map((slot, index) => {
@@ -275,6 +289,26 @@ export function CollagePanel(_props: PanelProps) {
                       {collageStrings.clear}
                     </button>
                   ) : null}
+                </div>
+
+                <div className={styles.shapeRow} role="group" aria-label={collageStrings.shape}>
+                  <span className={styles.label}>{collageStrings.shape}</span>
+                  {SLOT_SHAPES.map((shape) => {
+                    const name = shape ? collageStrings.shapes[shape] : collageStrings.shapes.rect
+                    return (
+                      <button
+                        key={shape ?? 'rect'}
+                        type="button"
+                        className={styles.shapeChip}
+                        aria-pressed={shapeChoice === shape}
+                        aria-label={name}
+                        title={name}
+                        onClick={() => editor.collage.setSlotMask(activeSlot.id, shape)}
+                      >
+                        <span className={styles.shapeDot} style={slotClipStyle(shape, 18, 14)} aria-hidden="true" />
+                      </button>
+                    )
+                  })}
                 </div>
 
                 {activeSlot.isPlaceholder !== true ? (
@@ -414,10 +448,10 @@ function StickersTab({ busy, setBusy }: { busy: boolean; setBusy: (busy: boolean
       <button type="button" className={styles.primary} onClick={() => void editor.insert.pickAndInsertImages()} disabled={busy}>
         <Upload size={14} /> {collageStrings.uploadSticker}
       </button>
-      {loading ? <p className={styles.hint}>{t.assetLibrary.loading}</p> : null}
+      {loading ? <p className={styles.hint}>Loading…</p> : null}
       {!loading && failed ? (
         <button type="button" className={styles.secondary} onClick={reload}>
-          {t.assetLibrary.retry}
+          Retry
         </button>
       ) : null}
       {!loading && !failed && (!enabled || visible.length === 0) ? <p className={styles.hint}>{collageStrings.noStickers}</p> : null}

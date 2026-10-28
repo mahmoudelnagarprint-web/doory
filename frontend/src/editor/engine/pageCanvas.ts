@@ -12,13 +12,14 @@ import {
   type FabricObject,
   Group,
   IText,
+  Point,
   type CanvasEvents,
   type TMat2D,
   type TPointerEvent,
   type TPointerEventInfo,
 } from 'fabric'
 import type { SafeZone } from '@/lib/sizePresets'
-import type { DocObject, DocPage, PageGuide } from '@/types/document'
+import type { DocObject, DocPage, PageGuide, SlotSpec } from '@/types/document'
 import type { PageSize } from './docOps'
 import { DragLayerCache } from './dragCache'
 import { type Rect, rectsIntersect } from './geometry'
@@ -27,8 +28,11 @@ import { buildBackground, installBackground } from './objects/background'
 import { bakeInPlace, isScaled } from './objects/bake'
 import { refitCurve } from './objects/curvedText'
 import { customizeControls } from './objects/controls'
-import { anchorFrames, carriedPictures, clampSlotImage, followFrames, type FrameAnchor, slotOf, strokeSlotOutline } from './objects/slot'
+import { anchorFrames, carriedPictures, clampSlotImage, followFrames, type FrameAnchor, resizeSlotFrame, rotatePoint, slotOf, strokeSlotOutline } from './objects/slot'
 import { applyLock, asDory, ensureId } from './objects/dory'
+import { applySlotClip } from './objects/masks'
+import { type CollageStageMode } from './collage/stage'
+import { swapTarget } from './collage/swap'
 import { reapplyCase, refitTextbox, syncDirection } from './objects/textStyle'
 import { type CanvasTheme, applyThemeToCanvas, selectionStyle } from './objects/theme'
 import { type Deferred, mergeObject, planPage } from './remoteSync'
@@ -57,6 +61,8 @@ export interface PageCanvasHost {
   readonly showGrid: boolean
   readonly showBleed: boolean
   readonly showRulerGuides: boolean
+  /** What dragging a collage photo does: pan inside its frame, or move the frame itself. */
+  readonly stageMode: CollageStageMode
   readonly bleedPx: number
   readonly showSafeZone: boolean
   /** The safe zone of a page of this size, from the design's size preset; null for none. */
@@ -71,6 +77,8 @@ export interface PageCanvasHost {
   onEditingChange(pageId: string, editing: boolean): void
   onPlaceholderActivate(pageId: string, id: string): void
   onToolDone(): void
+  /** A collage frame was dropped mostly over another slot: trade their photos. */
+  onSwapSlots(pageId: string, sourceId: string, targetId: string): void
   /** The user tried to edit the text of an object somebody else is editing. */
   onEditBlocked(pageId: string, id: string): void
 }
@@ -84,6 +92,16 @@ export interface OverlayState {
 }
 
 const EMPTY_OVERLAY: OverlayState = { guides: [], spacing: [], hover: null, rulerGuides: [] }
+
+/** The picture frame as it was when a drag began (`edit-frame` mode edits the frame, not the photo). */
+interface FrameGesture {
+  slot: SlotSpec
+  centre: Point
+  /** The picture's centre relative to its frame's centre when the drag began (a panned photo). */
+  offset: Point
+  scaleX: number
+  scaleY: number
+}
 
 const NUDGE_CLICK_SLOP = 6
 /** Breathing room between a text and its selection border, so the last glyph never pokes out of it. */
@@ -106,6 +124,10 @@ export class PageCanvas {
   private snapRects: Rect[] | null = null
   /** Frames of the filled placeholders inside the group or selection being transformed (see `followFrames`). */
   private frames: FrameAnchor[] = []
+  /** The slot frame being edited in `edit-frame` mode, captured when its transform starts. */
+  private frameGesture: FrameGesture | null = null
+  /** True once a frame drag has actually moved, so a click does not try to swap photos. */
+  private frameMoved = false
   private queue: Promise<void> = Promise.resolve()
   private suppress = 0
   private textDrag: { x: number; y: number } | null = null
@@ -586,6 +608,8 @@ export class PageCanvas {
     on('selection:updated', () => !this.suppress && host.onSelectionChange(pid))
     on('selection:cleared', () => {
       this.dragCache.end()
+      this.frameGesture = null
+      this.frameMoved = false
       if (!this.suppress) host.onSelectionChange(pid)
       this.leaveGroupEditing()
     })
@@ -596,24 +620,34 @@ export class PageCanvas {
       const target = e.transform.target
       const members = target instanceof ActiveSelection ? target.getObjects() : [target]
       this.gesture = new Set(members.map((m) => asDory(m).id ?? '').filter(Boolean))
+      const slot = target instanceof ActiveSelection ? undefined : asDory(target).slot
+      const centre = target.getCenterPoint()
+      this.frameGesture = slot
+        ? { slot: { ...slot }, centre, offset: new Point(centre.x - slot.cx, centre.y - slot.cy), scaleX: target.scaleX, scaleY: target.scaleY }
+        : null
+      this.frameMoved = false
     })
     on('object:moving', (e) => {
       this.dragCache.ensure()
-      this.snapMoving(e.target, e.e)
-      clampSlotImage(e.target)
+      if (!this.moveFrame(e.target, e.e)) {
+        this.snapMoving(e.target, e.e)
+        clampSlotImage(e.target)
+      }
       followFrames(this.frames)
       host.onSelectionLive(pid)
     })
     on('object:scaling', (e) => {
       this.dragCache.ensure()
-      this.snapScaling(e.target, e.transform?.corner ?? '', e.e)
-      clampSlotImage(e.target)
+      if (!this.scaleFrame(e.target, e.transform?.corner ?? '', e.e)) {
+        this.snapScaling(e.target, e.transform?.corner ?? '', e.e)
+        clampSlotImage(e.target)
+      }
       followFrames(this.frames)
       host.onSelectionLive(pid)
     })
     on('object:rotating', (e) => {
       this.dragCache.ensure()
-      clampSlotImage(e.target)
+      if (!this.rotateFrame(e.target)) clampSlotImage(e.target)
       followFrames(this.frames)
       host.onSelectionLive(pid)
     })
@@ -628,11 +662,19 @@ export class PageCanvas {
       this.gesture = new Set()
       this.frames = []
       this.snapRects = null
+      const moved = this.frameMoved
+      const gesture = this.frameGesture
+      this.frameMoved = false
+      this.frameGesture = null
       if (this.overlay.guides.length > 0 || this.overlay.spacing.length > 0) {
         this.overlay.guides = []
         this.overlay.spacing = []
         this.drawOverlay()
       }
+      // A frame dropped mostly over another slot trades photos with it (edit-frame mode only).
+      const active = this.canvas.getActiveObject()
+      const dropped = moved && host.stageMode === 'edit-frame' && active && !(active instanceof ActiveSelection) ? active : undefined
+      if (dropped && gesture) this.trySwapFrame(pid, dropped, gesture.slot)
     })
 
     on('object:modified', (e) => {
@@ -886,6 +928,114 @@ export class PageCanvas {
     return disabled
   }
 
+  /* --------------------------------------------------------------- stage mode */
+
+  /** True when the picture's frame itself is being edited (a single slot in `edit-frame` mode). */
+  private editingFrame(target: FabricObject): boolean {
+    return this.host.stageMode === 'edit-frame' && this.frameGesture !== null && !(target instanceof ActiveSelection) && !!asDory(target).slot
+  }
+
+  /** Drags the frame and its photo together; the photo keeps covering the frame. */
+  private moveFrame(target: FabricObject, ev: TPointerEvent): boolean {
+    const g = this.frameGesture
+    const d = asDory(target)
+    if (!g || !d.slot || !this.editingFrame(target)) return false
+    const centre = target.getCenterPoint()
+    let cx = g.slot.cx + (centre.x - g.centre.x)
+    let cy = g.slot.cy + (centre.y - g.centre.y)
+    if (Math.hypot(cx - g.slot.cx, cy - g.slot.cy) > 1) this.frameMoved = true
+    const snap = this.snapSlot({ ...g.slot, cx, cy }, target, ev)
+    cx += snap.dx
+    cy += snap.dy
+    const slot: SlotSpec = { ...g.slot, cx, cy }
+    d.slot = slot
+    target.setPositionByOrigin(new Point(cx + g.offset.x, cy + g.offset.y), 'center', 'center')
+    applySlotClip(target)
+    target.setCoords()
+    target.set('dirty', true)
+    return true
+  }
+
+  /** Resizes the frame from the dragged handle and refits the photo to cover it (never stretches it). */
+  private scaleFrame(target: FabricObject, corner: string, ev: TPointerEvent): boolean {
+    const g = this.frameGesture
+    const d = asDory(target)
+    if (!g || !d.slot || !corner || !this.editingFrame(target)) return false
+    const ratioX = target.scaleX / (g.scaleX || 1)
+    const ratioY = target.scaleY / (g.scaleY || 1)
+    const threshold = 5 / Math.max(this.zoom, 0.25)
+    const grid = this.host.showGrid && !this.snapSuspended(ev) ? this.host.gridSize : 0
+    // A tilted frame keeps its centre: its handles scale along its own axes, so edges cannot be anchored
+    // in page space. Untilted frames grow from the opposite corner, with the grid stops.
+    const slot: SlotSpec =
+      Math.abs(g.slot.angle % 180) > 0.01
+        ? { ...g.slot, width: Math.max(8, g.slot.width * Math.abs(ratioX || 1)), height: Math.max(8, g.slot.height * Math.abs(ratioY || 1)) }
+        : resizeSlotFrame(g.slot, corner, ratioX, ratioY, { grid, threshold })
+    d.slot = slot
+    const scale = Math.max(slot.width / (target.width || 1), slot.height / (target.height || 1))
+    target.set({ scaleX: scale * (target.scaleX < 0 ? -1 : 1), scaleY: scale * (target.scaleY < 0 ? -1 : 1) })
+    target.setPositionByOrigin(new Point(slot.cx, slot.cy), 'center', 'center')
+    target.set('angle', slot.angle)
+    applySlotClip(target)
+    target.setCoords()
+    target.set('dirty', true)
+    return true
+  }
+
+  /** Turns the frame around its centre; the photo turns with it and keeps covering. */
+  private rotateFrame(target: FabricObject): boolean {
+    const g = this.frameGesture
+    const d = asDory(target)
+    if (!g || !d.slot || !this.editingFrame(target)) return false
+    const turned = target.angle - g.slot.angle
+    const offset = rotatePoint(g.offset.x, g.offset.y, turned)
+    d.slot = { ...g.slot, angle: target.angle }
+    target.setPositionByOrigin(new Point(g.slot.cx + offset.x, g.slot.cy + offset.y), 'center', 'center')
+    applySlotClip(target)
+    clampSlotImage(target)
+    target.set('dirty', true)
+    return true
+  }
+
+  /** The snap delta for a frame rectangle (never for a tilted one: its page box no longer follows the edges). */
+  private snapSlot(slot: SlotSpec, target: FabricObject, ev: TPointerEvent): { dx: number; dy: number } {
+    if (this.snapSuspended(ev) || Math.abs(slot.angle % 180) > 0.01) {
+      this.overlay.guides = []
+      this.overlay.spacing = []
+      return { dx: 0, dy: 0 }
+    }
+    const moving: Rect = { left: slot.cx - slot.width / 2, top: slot.cy - slot.height / 2, width: slot.width, height: slot.height }
+    const page: Rect = { left: 0, top: 0, width: this.size.width, height: this.size.height }
+    const threshold = 5 / Math.max(this.zoom, 0.25)
+    const r = computeSnap(moving, this.snapTargets(target), page, { threshold, grid: this.host.showGrid ? this.host.gridSize : undefined })
+    this.overlay.guides = this.host.showGuides ? r.guides : []
+    this.overlay.spacing = this.host.showGuides ? r.spacing : []
+    return { dx: r.dx, dy: r.dy }
+  }
+
+  /** A frame dropped mostly over another slot: swap the two photos (see `swapTarget`). */
+  private trySwapFrame(pageId: string, dropped: FabricObject, original: SlotSpec): void {
+    const d = asDory(dropped)
+    if (!d.id || !d.slot || d.isPlaceholder) return
+    const candidates = this.canvas.getObjects().flatMap((o) => {
+      const c = asDory(o)
+      if (o === dropped || !c.id || !c.slot || c.isPlaceholder || c.collage?.role) return []
+      return [{ id: c.id, slot: c.slot }]
+    })
+    const target = swapTarget({ id: d.id, slot: d.slot }, candidates)
+    if (!target) return
+    // The gesture swaps photos, not frames: put the dragged frame back where it started before the swap.
+    d.slot = { ...original }
+    const scale = Math.max(original.width / (dropped.width || 1), original.height / (dropped.height || 1))
+    dropped.set({ scaleX: scale * (dropped.scaleX < 0 ? -1 : 1), scaleY: scale * (dropped.scaleY < 0 ? -1 : 1), angle: original.angle })
+    dropped.setPositionByOrigin(new Point(original.cx, original.cy), 'center', 'center')
+    applySlotClip(dropped)
+    dropped.setCoords()
+    dropped.set('dirty', true)
+    this.canvas.requestRenderAll()
+    this.host.onSwapSlots(pageId, d.id, target.id)
+  }
+
   private snapMoving(target: FabricObject, ev: TPointerEvent): void {
     const host = this.host
     if (this.snapSuspended(ev)) return
@@ -895,7 +1045,7 @@ export class PageCanvas {
     const moving = objectRect(target)
     const page: Rect = { left: 0, top: 0, width: this.size.width, height: this.size.height }
     const threshold = 5 / Math.max(this.zoom, 0.25)
-    const r = computeSnap(moving, others, page, { threshold })
+    const r = computeSnap(moving, others, page, { threshold, grid: host.showGrid ? host.gridSize : undefined })
     if (r.dx !== 0 || r.dy !== 0) {
       target.set({ left: target.left + r.dx, top: target.top + r.dy })
       target.setCoords()
@@ -922,7 +1072,8 @@ export class PageCanvas {
     const rect = objectRect(target)
     if (rect.width < 1 || rect.height < 1) return
     const page: Rect = { left: 0, top: 0, width: this.size.width, height: this.size.height }
-    const snap = computeResizeSnap(rect, others, page, drag, 5 / Math.max(this.zoom, 0.25))
+    const grid = this.host.showGrid ? this.host.gridSize : 0
+    const snap = computeResizeSnap(rect, others, page, drag, 5 / Math.max(this.zoom, 0.25), grid)
     this.overlay.guides = this.host.showGuides ? snap.guides : []
     this.overlay.spacing = []
     if (snap.dx === 0 && snap.dy === 0) return

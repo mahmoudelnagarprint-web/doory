@@ -1,3 +1,4 @@
+import { animationStrings } from '../animation/strings'
 /**
  * The timeline under the workspace: the animations of the active page on a time axis, a transport (play, pause,
  * repeat, speed, the playhead's time), the page's own time and a warning when animations outlast it. On a narrow screen
@@ -12,7 +13,6 @@ import { pageSpans } from '../animation/model'
 import { timelineSections } from '../animation/sections'
 import { DurationChip } from '../presenter/DurationChip'
 import { useElementSize } from '../presenter/useElementSize'
-import { t } from '../strings'
 import { Button, IconButton } from '../ui/Button'
 import { Select } from '../ui/Select'
 import { TimelineList } from './TimelineList'
@@ -27,7 +27,7 @@ const ZOOM_STEP = 1.5
 function Readout({ lengthMs }: { lengthMs: number }) {
   const time = usePlaybackValue((s) => s.timeMs)
   return (
-    <span className={styles.readout} role="timer" aria-label={t.animation.timeline.time(formatTime(time, true), formatTime(lengthMs, true))} data-testid="tl-readout">
+    <span className={styles.readout} role="timer" aria-label={animationStrings.timeline.time(formatTime(time, true), formatTime(lengthMs, true))} data-testid="tl-readout">
       <span>{formatTime(time, true)}</span>
       <span className={styles.readoutTotal}> / {formatTime(lengthMs, true)}</span>
     </span>
@@ -85,25 +85,25 @@ function Timeline() {
   }, [selectedIds, ref])
 
   return (
-    <section ref={ref} className={`${styles.timeline} ${compact ? styles.compact : ''}`} aria-label={t.animation.timeline.region} data-collapsed={collapsed || undefined} data-testid="ed-timeline">
+    <section ref={ref} className={`${styles.timeline} ${compact ? styles.compact : ''}`} aria-label={animationStrings.timeline.region} data-collapsed={collapsed || undefined} data-testid="ed-timeline">
       <header className={styles.head} data-playback-controls>
-        <IconButton label={playing ? t.animation.timeline.pause : t.animation.timeline.play} size="sm" tooltipSide="top" shortcut="Space" disabled={empty} pressed={playing} onClick={() => playback.toggle(lengthMs)} data-testid="tl-play">
+        <IconButton label={playing ? animationStrings.timeline.pause : animationStrings.timeline.play} size="sm" tooltipSide="top" shortcut="Space" disabled={empty} pressed={playing} onClick={() => playback.toggle(lengthMs)} data-testid="tl-play">
           {playing ? <Pause size={16} /> : <Play size={16} />}
         </IconButton>
-        <IconButton label={t.animation.timeline.restart} size="sm" tooltipSide="top" disabled={empty} onClick={() => playback.seek(0, lengthMs)} data-testid="tl-restart">
+        <IconButton label={animationStrings.timeline.restart} size="sm" tooltipSide="top" disabled={empty} onClick={() => playback.seek(0, lengthMs)} data-testid="tl-restart">
           <SkipBack size={16} />
         </IconButton>
-        <IconButton label={t.animation.timeline.loop} size="sm" tooltipSide="top" pressed={loop} onClick={() => playback.setLoop(!loop)} data-testid="tl-loop">
+        <IconButton label={animationStrings.timeline.loop} size="sm" tooltipSide="top" pressed={loop} onClick={() => playback.setLoop(!loop)} data-testid="tl-loop">
           <Repeat size={16} />
         </IconButton>
         <Readout lengthMs={lengthMs} />
         {compact ? null : (
           <label className={styles.speed}>
-            <span className={styles.srOnly}>{t.animation.timeline.speed}</span>
-            <Select aria-label={t.animation.timeline.speed} value={String(speed)} onChange={(e) => playback.setSpeed(SPEEDS.find((s) => String(s) === e.target.value) ?? 1)} data-testid="tl-speed">
+            <span className={styles.srOnly}>{animationStrings.timeline.speed}</span>
+            <Select aria-label={animationStrings.timeline.speed} value={String(speed)} onChange={(e) => playback.setSpeed(SPEEDS.find((s) => String(s) === e.target.value) ?? 1)} data-testid="tl-speed">
               {SPEEDS.map((s) => (
                 <option key={s} value={String(s)}>
-                  {t.animation.timeline.speedOption(s)}
+                  {animationStrings.timeline.speedOption(s)}
                 </option>
               ))}
             </Select>
@@ -112,42 +112,42 @@ function Timeline() {
         <span className={styles.spacer} />
         {overrun && !readOnly ? (
           <span className={styles.warning} role="status" data-testid="tl-overrun">
-            <span>{t.animation.timeline.overrun(formatSeconds(overrun.overMs))}</span>
+            <span>{animationStrings.timeline.overrun(formatSeconds(overrun.overMs))}</span>
             <Button size="sm" variant="soft" onClick={() => editor.pages.setDuration(page.id, fittingDurationSec(page))} data-testid="tl-extend">
-              {t.animation.timeline.extend}
+              {animationStrings.timeline.extend}
             </Button>
           </span>
         ) : overrun ? (
           <span className={styles.warning} role="status">
-            {t.animation.timeline.overrun(formatSeconds(overrun.overMs))}
+            {animationStrings.timeline.overrun(formatSeconds(overrun.overMs))}
           </span>
         ) : null}
         <DurationChip pageId={page.id} />
         {compact || collapsed || empty ? null : (
           <>
-            <IconButton label={t.animation.timeline.zoomOut} size="sm" tooltipSide="top" disabled={zoom <= 1} onClick={() => setZoom((z) => Math.max(1, z / ZOOM_STEP))} data-testid="tl-zoom-out">
+            <IconButton label={animationStrings.timeline.zoomOut} size="sm" tooltipSide="top" disabled={zoom <= 1} onClick={() => setZoom((z) => Math.max(1, z / ZOOM_STEP))} data-testid="tl-zoom-out">
               <ZoomOut size={16} />
             </IconButton>
-            <IconButton label={t.animation.timeline.zoomIn} size="sm" tooltipSide="top" disabled={zoom >= MAX_ZOOM} onClick={() => setZoom((z) => Math.min(MAX_ZOOM, z * ZOOM_STEP))} data-testid="tl-zoom-in">
+            <IconButton label={animationStrings.timeline.zoomIn} size="sm" tooltipSide="top" disabled={zoom >= MAX_ZOOM} onClick={() => setZoom((z) => Math.min(MAX_ZOOM, z * ZOOM_STEP))} data-testid="tl-zoom-in">
               <ZoomIn size={16} />
             </IconButton>
           </>
         )}
-        <IconButton label={collapsed ? t.animation.timeline.expand : t.animation.timeline.collapse} size="sm" tooltipSide="top" onClick={() => setTimelineView(editor, { collapsed: !collapsed })} data-testid="tl-collapse">
+        <IconButton label={collapsed ? animationStrings.timeline.expand : animationStrings.timeline.collapse} size="sm" tooltipSide="top" onClick={() => setTimelineView(editor, { collapsed: !collapsed })} data-testid="tl-collapse">
           {collapsed ? <ChevronUp size={16} /> : <ChevronDown size={16} />}
         </IconButton>
-        <IconButton label={t.animation.timeline.close} size="sm" tooltipSide="top" onClick={() => setTimelineView(editor, { open: false })} data-testid="tl-close">
+        <IconButton label={animationStrings.timeline.close} size="sm" tooltipSide="top" onClick={() => setTimelineView(editor, { open: false })} data-testid="tl-close">
           <X size={16} />
         </IconButton>
       </header>
       {collapsed ? null : empty ? (
         <div className={styles.empty} data-testid="tl-empty">
           <Film size={20} aria-hidden="true" />
-          <p>{t.animation.timeline.empty}</p>
-          <p className={styles.emptyHint}>{t.animation.timeline.emptyHint}</p>
+          <p>{animationStrings.timeline.empty}</p>
+          <p className={styles.emptyHint}>{animationStrings.timeline.emptyHint}</p>
           {readOnly ? null : (
             <Button size="sm" variant="soft" onClick={() => editor.patchUi({ panelId: 'animate' })}>
-              {t.animation.timeline.openPanel}
+              {animationStrings.timeline.openPanel}
             </Button>
           )}
         </div>

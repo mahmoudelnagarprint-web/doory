@@ -1,5 +1,5 @@
 import type { Rect } from './geometry'
-import { SNAP_THRESHOLD_PX, computeResizeSnap, computeSnap } from './snapping'
+import { SNAP_THRESHOLD_PX, computeResizeSnap, computeSnap, gridSnap } from './snapping'
 
 const page: Rect = { left: 0, top: 0, width: 400, height: 300 }
 
@@ -66,6 +66,19 @@ describe('computeSnap', () => {
     expect(r.dx).toBe(-2)
     expect(r.dy).toBe(-2)
   })
+
+  it('finds the nearest grid line within the threshold', () => {
+    expect(gridSnap(43, 20, 5)).toBe(40)
+    expect(gridSnap(52, 20, 5)).toBeNull()
+    expect(gridSnap(10, 0, 5)).toBeNull()
+  })
+
+  it('falls back to the grid when no page or object edge is in range', () => {
+    const r = computeSnap({ left: 43, top: 120, width: 10, height: 10 }, [], page, { grid: 20 })
+    expect(r.dx).toBe(-3)
+    // The grid is drawn on the page, so a grid snap needs no guide of its own.
+    expect(r.guides).toHaveLength(0)
+  })
 })
 
 describe('snapping while resizing', () => {
@@ -95,5 +108,11 @@ describe('snapping while resizing', () => {
 
   it('does nothing outside the threshold', () => {
     expect(computeResizeSnap(box, [], page, { x: 'right' }, 2)).toEqual({ dx: 0, dy: 0, guides: [] })
+  })
+
+  it('sticks the dragged edge to the grid when nothing else is near', () => {
+    const r = computeResizeSnap({ left: 10, top: 10, width: 33, height: 33 }, [], page, { x: 'right', y: 'bottom' }, 5, 20)
+    expect([r.dx, r.dy]).toEqual([-3, -3])
+    expect(r.guides).toHaveLength(0)
   })
 })

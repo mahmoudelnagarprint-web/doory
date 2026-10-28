@@ -10,7 +10,6 @@ export type AssetDragPayload =
   | { kind: 'stock'; provider: string; id: string; name: string }
   | { kind: 'local'; url: string; name: string; type: 'svg' | 'image' }
   | { kind: 'iconify'; id: string; name: string }
-  | { kind: 'pixabay'; id: string; name: string; url: string; previewUrl: string }
   | { kind: 'frame'; mask: MaskShape; name: string }
 
 function isText(value: unknown, max = 200): value is string {
@@ -46,9 +45,6 @@ export function readAssetDrag(dataTransfer: DataTransfer): AssetDragPayload | nu
     }
     if (value.kind === 'iconify' && isText(value.id, 100) && isText(value.name)) {
       return { kind: 'iconify', id: value.id, name: value.name }
-    }
-    if (value.kind === 'pixabay' && isText(value.id, 100) && isText(value.name) && isAssetUrl(value.url) && isAssetUrl(value.previewUrl)) {
-      return { kind: 'pixabay', id: value.id, name: value.name, url: value.url, previewUrl: value.previewUrl }
     }
     if (value.kind === 'frame' && isText(value.mask, 100) && isText(value.name)) {
       return { kind: 'frame', mask: value.mask as MaskShape, name: value.name }

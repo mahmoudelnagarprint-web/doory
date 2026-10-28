@@ -1,3 +1,4 @@
+import { animationStrings } from './strings'
 /** Names shown for animations in the timeline and the panel. */
 import type { DocObject } from '@/types/document'
 import { kindOfDoc } from '../engine/objects/kinds'
@@ -6,7 +7,7 @@ import type { AnimSlot } from './model'
 import { emphasisPresets, inOutPresets } from './presets'
 
 export function slotLabel(slot: AnimSlot): string {
-  return t.animation.timeline.slot[slot]
+  return animationStrings.timeline.slot[slot]
 }
 
 /** The name of a preset, or its id when it is not registered (a document from the future). */

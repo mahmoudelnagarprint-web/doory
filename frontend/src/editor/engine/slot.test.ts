@@ -7,7 +7,7 @@ import { EditorEngine } from './editor'
 import { resizeDocument } from './magicResize'
 import { renderableObjects } from './render'
 import { asDory } from './objects/dory'
-import { clampSlotImage, clampSlotTransform, coverSlotTransform, slotCorners, transformSlot, validSlot } from './objects/slot'
+import { clampSlotImage, clampSlotTransform, coverSlotTransform, resizeSlotFrame, slotCorners, transformSlot, validSlot } from './objects/slot'
 
 const slot = (patch: Partial<SlotSpec> = {}): SlotSpec => ({ cx: 200, cy: 200, width: 100, height: 100, angle: 0, ...patch })
 const state = (patch: Partial<Parameters<typeof clampSlotTransform>[1]> = {}) => ({ width: 300, height: 200, angle: 0, scaleX: 1, scaleY: 1, cx: 200, cy: 200, ...patch })
@@ -64,6 +64,31 @@ describe('slot geometry', () => {
     const next = clampSlotTransform(slot({ width: 200, height: 100 }), state({ angle: 90, scaleX: 0.2, scaleY: 0.2 }))
     // In the picture's frame the slot is 100 wide and 200 tall: the 200 px side needs 200 / 200 of the picture's height.
     expect(next.scale).toBeCloseTo(1)
+  })
+})
+
+describe('resizing a frame from a handle', () => {
+  it('grows from the opposite corner', () => {
+    const next = resizeSlotFrame(slot(), 'br', 1.2, 1.5)
+    expect(next.width).toBeCloseTo(120)
+    expect(next.height).toBeCloseTo(150)
+    expect(next.cx).toBeCloseTo(210)
+    expect(next.cy).toBeCloseTo(225)
+  })
+
+  it('shrinks from the top-left and keeps the bottom-right corner', () => {
+    const next = resizeSlotFrame(slot(), 'tl', 0.5, 0.5)
+    expect(next.width).toBeCloseTo(50)
+    expect(next.height).toBeCloseTo(50)
+    expect(next.cx).toBeCloseTo(225)
+    expect(next.cy).toBeCloseTo(225)
+  })
+
+  it('sticks the dragged edge to a grid line and never shrinks below 8 px', () => {
+    const next = resizeSlotFrame(slot({ cx: 196.5, width: 93 }), 'r', 1, 1, { grid: 20, threshold: 5 })
+    expect(next.width).toBeCloseTo(90)
+    expect(next.cx).toBeCloseTo(195)
+    expect(resizeSlotFrame(slot({ width: 9 }), 'r', 0.01, 1).width).toBe(8)
   })
 })
 

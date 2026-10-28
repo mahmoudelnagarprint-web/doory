@@ -12,6 +12,7 @@ import type { MaskShape, SlotSpec } from '@/types/document'
 import { asDory } from './dory'
 import { applySlotClip } from './masks'
 import { PATH_SHAPES, maskPath, pointsToPath } from './shapeGeometry'
+import { gridSnap } from '../snapping'
 
 const isNum = (v: unknown): v is number => typeof v === 'number' && Number.isFinite(v)
 
@@ -100,6 +101,51 @@ export function clampSlotTransform(slot: SlotSpec, img: SlotImageState): { scale
 /** The scale and centre of a picture that exactly covers the slot (cover fit, centred). */
 export function coverSlotTransform(slot: SlotSpec, naturalWidth: number, naturalHeight: number): { scale: number; cx: number; cy: number } {
   return { scale: Math.max(slot.width / (naturalWidth || 1), slot.height / (naturalHeight || 1)), cx: slot.cx, cy: slot.cy }
+}
+
+export interface SlotResizeOptions {
+  /** Grid step in page px; 0 disables the grid. */
+  grid?: number
+  /** How close (page px) the dragged edge must be to a grid line to stick. */
+  threshold?: number
+}
+
+/**
+ * The frame after dragging one of its handles: `ratioX`/`ratioY` are the scale factors Fabric applied to the
+ * picture, and `corner` names the dragged handle (`tl`, `tr`, `bl`, `br`, …). The opposite edges stay where
+ * they were, and with a grid the dragged edges stick to it.
+ */
+export function resizeSlotFrame(slot: SlotSpec, corner: string, ratioX: number, ratioY: number, options: SlotResizeOptions = {}): SlotSpec {
+  const min = 8
+  const grid = options.grid && options.grid > 0 ? options.grid : 0
+  const threshold = options.threshold ?? 5
+  let width = Math.max(min, slot.width * Math.abs(ratioX || 1))
+  let height = Math.max(min, slot.height * Math.abs(ratioY || 1))
+  let cx = slot.cx
+  let cy = slot.cy
+  const left = slot.cx - slot.width / 2
+  const right = slot.cx + slot.width / 2
+  const top = slot.cy - slot.height / 2
+  const bottom = slot.cy + slot.height / 2
+  if (corner.includes('r')) {
+    const edge = grid > 0 ? gridSnap(left + width, grid, threshold) : null
+    if (edge !== null) width = Math.max(min, edge - left)
+    cx = left + width / 2
+  } else if (corner.includes('l')) {
+    const edge = grid > 0 ? gridSnap(right - width, grid, threshold) : null
+    if (edge !== null) width = Math.max(min, right - edge)
+    cx = right - width / 2
+  }
+  if (corner.includes('b')) {
+    const edge = grid > 0 ? gridSnap(top + height, grid, threshold) : null
+    if (edge !== null) height = Math.max(min, edge - top)
+    cy = top + height / 2
+  } else if (corner.includes('t')) {
+    const edge = grid > 0 ? gridSnap(bottom - height, grid, threshold) : null
+    if (edge !== null) height = Math.max(min, bottom - edge)
+    cy = bottom - height / 2
+  }
+  return { ...slot, cx, cy, width, height }
 }
 
 /* ------------------------------------------------------------------------------------------------

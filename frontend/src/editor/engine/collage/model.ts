@@ -5,10 +5,10 @@
  * hand-edited or older design still opens. Nothing here needs a Fabric canvas except `slotAtLive`.
  */
 import type { FabricObject } from 'fabric'
-import type { CollageBounds, CollageLayoutId, CollageMeta, CollageRole, CollageStyle, DocObject, SlotSpec } from '@/types/document'
+import type { CollageBounds, CollageFrameSpec, CollageLayoutId, CollageMeta, CollageRole, CollageStyle, DocObject, MaskShape, SlotSpec } from '@/types/document'
 import { asDory } from '../objects/dory'
 import { slotOf, validSlot } from '../objects/slot'
-import { COLLAGE_LAYOUTS } from './layout'
+import { ALL_COLLAGE_LAYOUTS, COLLAGE_MAX_SLOTS } from './layout'
 
 const num = (value: unknown, fallback: number): number => (typeof value === 'number' && Number.isFinite(value) ? value : fallback)
 const text = (value: unknown, fallback: string): string => (typeof value === 'string' && value.trim() ? value : fallback)
@@ -57,7 +57,35 @@ function readStyle(raw: unknown): CollageStyle {
 }
 
 function isLayout(value: unknown): value is CollageLayoutId {
-  return typeof value === 'string' && (COLLAGE_LAYOUTS as readonly string[]).includes(value)
+  return typeof value === 'string' && (ALL_COLLAGE_LAYOUTS as readonly string[]).includes(value)
+}
+
+function isMask(value: unknown): value is MaskShape {
+  return typeof value === 'string' || (!!value && typeof value === 'object' && typeof (value as { path?: unknown }).path === 'string')
+}
+
+/** Explicit frames are bounds-relative and already spaced; malformed entries are dropped. */
+function readFrames(raw: unknown): CollageFrameSpec[] | undefined {
+  if (!Array.isArray(raw)) return undefined
+  const out: CollageFrameSpec[] = []
+  for (const item of raw.slice(0, COLLAGE_MAX_SLOTS)) {
+    if (!item || typeof item !== 'object') continue
+    const f = item as Record<string, unknown>
+    const width = num(f.width, 0)
+    const height = num(f.height, 0)
+    if (width <= 0 || height <= 0) continue
+    const frame: CollageFrameSpec = {
+      x: clamp(num(f.x, 0), 0, 1),
+      y: clamp(num(f.y, 0), 0, 1),
+      width: clamp(width, 0.001, 1),
+      height: clamp(height, 0.001, 1),
+    }
+    if (num(f.angle, 0) !== 0) frame.angle = clamp(num(f.angle, 0), -180, 180)
+    if (isMask(f.mask)) frame.mask = f.mask
+    if (typeof f.radius === 'number') frame.radius = clamp(f.radius, 0, 0.5)
+    out.push(frame)
+  }
+  return out.length > 0 ? out : undefined
 }
 
 /** Reads one stored collage meta, or undefined when it is not usable at all (no id). */
@@ -68,10 +96,14 @@ export function readCollageMeta(raw: unknown): CollageMeta | undefined {
   if (!id) return undefined
   const bounds = readBounds(c.bounds) ?? { x: 0, y: 0, width: 1000, height: 1000 }
   const role: CollageRole | undefined = c.role === 'mat' || c.role === 'inner' ? c.role : undefined
+  const frames = readFrames(c.frames)
+  const storedLayout = isLayout(c.layout) ? c.layout : undefined
+  const layout: CollageLayoutId = frames ? 'custom' : storedLayout === 'custom' || !storedLayout ? 'grid' : storedLayout
   return {
     id,
     name: typeof c.name === 'string' && c.name.trim() ? c.name : undefined,
-    layout: isLayout(c.layout) ? c.layout : 'grid',
+    layout,
+    ...(frames ? { frames } : {}),
     gap: clamp(num(c.gap, 8), 0, 2000),
     margin: clamp(num(c.margin, 24), 0, 2000),
     rtl: c.rtl === true,
@@ -104,6 +136,8 @@ export interface CollageGroup {
   id: string
   name: string
   layout: CollageLayoutId
+  /** Explicit frames of a curated/generated layout, when it has any. */
+  frames?: CollageFrameSpec[]
   gap: number
   margin: number
   rtl: boolean
@@ -131,6 +165,7 @@ export function collageGroups(objects: readonly DocObject[]): CollageGroup[] {
       id,
       name: meta.name ?? 'Collage',
       layout: meta.layout,
+      ...(meta.frames ? { frames: meta.frames } : {}),
       gap: meta.gap,
       margin: meta.margin,
       rtl: meta.rtl,

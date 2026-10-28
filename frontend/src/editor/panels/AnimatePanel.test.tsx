@@ -1,14 +1,14 @@
+import { animationStrings } from '../animation/strings'
 import { act, fireEvent, render, screen, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import type { ObjectAnimation } from '@/types/document'
 import { enter, rectObject, setupEditor, textObject } from '../animation/testing'
 import { EditorProvider } from '../EditorProvider'
-import { t } from '../strings'
 import { AnimatePanel } from './AnimatePanel'
 import type { EditorEngine } from '../engine/editor'
 
-const COPY = t.animation.panel
+const COPY = animationStrings.panel
 
 async function open(options: Parameters<typeof setupEditor>[0] = {}, select: string[] = []) {
   const { engine, pageId } = await setupEditor(options)

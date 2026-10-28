@@ -1,3 +1,4 @@
+import { animationStrings } from './strings'
 /**
  * Registry commands of animation: the timeline, playing the page, and the Animate panel. Their ids start with `view.`
  * so they stay available in view-only and comment-only links (anyone who can see the design can play it).
@@ -10,11 +11,11 @@ import { playbackOf } from './playback'
 import { pageHasAnimation } from './model'
 import { previewLengthMs } from './timelineMath'
 
-registerCommand({ id: 'view.timeline', label: t.animation.cmd.timeline, shortcut: 'Shift+T', group: t.cmdGroup.view, icon: <Clapperboard size={18} />, run: (e) => toggleTimeline(e) })
+registerCommand({ id: 'view.timeline', label: animationStrings.cmd.timeline, shortcut: 'Shift+T', group: t.cmdGroup.view, icon: <Clapperboard size={18} />, run: (e) => toggleTimeline(e) })
 
 registerCommand({
   id: 'view.playPage',
-  label: t.animation.cmd.playPage,
+  label: animationStrings.cmd.playPage,
   shortcut: 'Shift+Enter',
   group: t.cmdGroup.view,
   icon: <Play size={18} />,
@@ -28,4 +29,4 @@ registerCommand({
   },
 })
 
-registerCommand({ id: 'view.animate', label: t.animation.cmd.animate, group: t.cmdGroup.view, icon: <Sparkles size={18} />, run: (e) => e.patchUi({ panelId: e.state.ui.panelId === 'animate' ? null : 'animate' }), enabled: ({ state }) => !state.readOnly })
+registerCommand({ id: 'view.animate', label: animationStrings.cmd.animate, group: t.cmdGroup.view, icon: <Sparkles size={18} />, run: (e) => e.patchUi({ panelId: e.state.ui.panelId === 'animate' ? null : 'animate' }), enabled: ({ state }) => !state.readOnly })

@@ -1,3 +1,4 @@
+import { audioStrings } from '../audio/strings'
 /**
  * The Record tab: a voiceover from the microphone. The person starts it, sees the browser's permission prompt, gets a
  * 3-2-1 countdown with a live level meter, records, listens back and then keeps it (as a track of the whole design or of
@@ -11,7 +12,6 @@ import { type Peaks, computePeaks } from '../audio/peaks'
 import { type RecorderState, VoiceRecorder, browserDeps, formatClock } from '../audio/recorder'
 import { audioRuntime, usePreview } from '../audio/runtime'
 import { decodeBytes } from '../audio/sources'
-import { t } from '../strings'
 import { Button } from '../ui/Button'
 import { AudioWaveform } from './AudioWaveform'
 import styles from './Audio.module.css'
@@ -24,7 +24,7 @@ function useRecorder(): VoiceRecorder {
 
 function Meter({ level }: { level: number }) {
   return (
-    <div className={styles.meter} role="meter" aria-label={t.audio.record.level} aria-valuemin={0} aria-valuemax={100} aria-valuenow={Math.round(level * 100)} data-testid="audio-meter">
+    <div className={styles.meter} role="meter" aria-label={audioStrings.record.level} aria-valuemin={0} aria-valuemax={100} aria-valuenow={Math.round(level * 100)} data-testid="audio-meter">
       <span style={{ transform: `scaleX(${level})` }} />
     </div>
   )
@@ -71,10 +71,10 @@ function Take({ state, recorder }: { state: Extract<RecorderState, { status: 're
     setProblem(null)
     try {
       await editor.audio.addRecording(state.blob, scope === 'design' ? { type: 'design' } : { type: 'page', pageId: editor.state.activePageId })
-      editor.toast(t.audio.record.saved, 'success')
+      editor.toast(audioStrings.record.saved, 'success')
       recorder.reset()
     } catch (error) {
-      setProblem(error instanceof Error && error.message ? error.message : t.audio.errors.recordSave)
+      setProblem(error instanceof Error && error.message ? error.message : audioStrings.errors.recordSave)
       setSaving(false)
     }
   }
@@ -82,7 +82,7 @@ function Take({ state, recorder }: { state: Extract<RecorderState, { status: 're
   return (
     <div className={styles.take} data-testid="audio-take">
       <p className={styles.rowTitle}>
-        <span className={styles.rowName}>{t.audio.record.review}</span>
+        <span className={styles.rowName}>{audioStrings.record.review}</span>
         <span className={styles.rowMeta}>{formatSeconds(state.durationMs)}</span>
       </p>
       <div className={styles.takePlayer}>
@@ -90,16 +90,16 @@ function Take({ state, recorder }: { state: Extract<RecorderState, { status: 're
           size="sm"
           variant="soft"
           pressed={playing}
-          aria-label={t.audio.record.playback}
+          aria-label={audioStrings.record.playback}
           icon={playing ? <Pause size={14} aria-hidden="true" /> : <Play size={14} aria-hidden="true" />}
           data-testid="audio-take-play"
           onClick={() => void previewer.toggle(key, async () => objectUrl(), { durationMs: state.durationMs })}
         >
-          {playing ? t.audio.transport.pause : t.audio.record.play}
+          {playing ? audioStrings.transport.pause : audioStrings.record.play}
         </Button>
-        <AudioWaveform peaks={peaks} name={t.audio.record.review} height={36} loading={peaks === null} progress={preview.key === key ? Math.min(1, preview.positionMs / Math.max(1, state.durationMs)) : undefined} />
+        <AudioWaveform peaks={peaks} name={audioStrings.record.review} height={36} loading={peaks === null} progress={preview.key === key ? Math.min(1, preview.positionMs / Math.max(1, state.durationMs)) : undefined} />
       </div>
-      {mode === 'guest' ? <p className={styles.fine}>{t.audio.record.guestNote}</p> : null}
+      {mode === 'guest' ? <p className={styles.fine}>{audioStrings.record.guestNote}</p> : null}
       {problem ? (
         <p className={styles.warn} role="alert" data-testid="audio-record-error">
           {problem}
@@ -107,16 +107,16 @@ function Take({ state, recorder }: { state: Extract<RecorderState, { status: 're
       ) : null}
       <div className={styles.cardActions}>
         <Button size="sm" variant="primary" disabled={saving} onClick={() => void keep('design')} data-testid="audio-record-save-design">
-          {saving ? t.audio.record.saving : t.audio.library.addToDesign}
+          {saving ? audioStrings.record.saving : audioStrings.library.addToDesign}
         </Button>
         <Button size="sm" variant="soft" disabled={saving} onClick={() => void keep('page')} data-testid="audio-record-save-page">
-          {t.audio.library.addToPage}
+          {audioStrings.library.addToPage}
         </Button>
         <Button size="sm" variant="ghost" disabled={saving} icon={<RotateCcw size={13} aria-hidden="true" />} onClick={() => recorder.retake()} data-testid="audio-record-retake">
-          {t.audio.record.retake}
+          {audioStrings.record.retake}
         </Button>
         <Button size="sm" variant="ghost" disabled={saving} onClick={() => recorder.reset()} data-testid="audio-record-discard">
-          {t.audio.record.discard}
+          {audioStrings.record.discard}
         </Button>
       </div>
     </div>
@@ -140,22 +140,22 @@ export function AudioRecordTab() {
       .catch(() => undefined)
   }, [])
 
-  if (readOnly) return <p className={styles.empty}>{t.audio.errors.readOnly}</p>
+  if (readOnly) return <p className={styles.empty}>{audioStrings.errors.readOnly}</p>
 
   return (
     <div className={styles.tab} data-testid="audio-record" data-state={state.status}>
-      <h3 className={styles.sectionTitle}>{t.audio.record.title}</h3>
-      {state.status === 'idle' || state.status === 'error' ? <p className={styles.hint}>{t.audio.record.intro}</p> : null}
+      <h3 className={styles.sectionTitle}>{audioStrings.record.title}</h3>
+      {state.status === 'idle' || state.status === 'error' ? <p className={styles.hint}>{audioStrings.record.intro}</p> : null}
 
       {state.status === 'idle' ? (
         <>
           {blocked ? (
             <p className={styles.warn} role="alert" data-testid="audio-record-denied">
-              {t.audio.record.blocked}
+              {audioStrings.record.blocked}
             </p>
           ) : null}
           <Button variant="primary" icon={<Mic size={16} aria-hidden="true" />} onClick={() => void recorder.begin()} data-testid="audio-record-start">
-            {t.audio.record.start}
+            {audioStrings.record.start}
           </Button>
         </>
       ) : null}
@@ -163,19 +163,19 @@ export function AudioRecordTab() {
       {state.status === 'requesting' ? (
         <div className={styles.recorder} role="status" data-testid="audio-record-requesting">
           <span className={styles.spinner} aria-hidden="true" />
-          <p>{t.audio.record.requesting}</p>
-          <p className={styles.hint}>{t.audio.record.requestingHint}</p>
+          <p>{audioStrings.record.requesting}</p>
+          <p className={styles.hint}>{audioStrings.record.requestingHint}</p>
         </div>
       ) : null}
 
       {state.status === 'countdown' ? (
         <div className={styles.recorder} data-testid="audio-record-countdown">
-          <p className={styles.countdown} role="timer" aria-live="assertive" aria-label={t.audio.record.countdown(state.remaining)}>
+          <p className={styles.countdown} role="timer" aria-live="assertive" aria-label={audioStrings.record.countdown(state.remaining)}>
             {state.remaining}
           </p>
           <Meter level={state.level} />
           <Button size="sm" variant="ghost" onClick={() => recorder.stop()} data-testid="audio-record-cancel">
-            {t.audio.record.cancel}
+            {audioStrings.record.cancel}
           </Button>
         </div>
       ) : null}
@@ -184,14 +184,14 @@ export function AudioRecordTab() {
         <div className={styles.recorder} data-testid="audio-record-recording">
           <p className={styles.recording}>
             <span className={styles.dot} aria-hidden="true" />
-            {t.audio.record.recording}
-            <span className={styles.elapsed} role="timer" aria-label={t.audio.record.elapsed(formatClock(state.elapsedMs))}>
+            {audioStrings.record.recording}
+            <span className={styles.elapsed} role="timer" aria-label={audioStrings.record.elapsed(formatClock(state.elapsedMs))}>
               {formatClock(state.elapsedMs)}
             </span>
           </p>
           <Meter level={state.level} />
           <Button variant="danger" icon={<Square size={14} aria-hidden="true" />} onClick={() => recorder.stop()} data-testid="audio-record-stop">
-            {t.audio.record.stop}
+            {audioStrings.record.stop}
           </Button>
         </div>
       ) : null}
@@ -202,7 +202,7 @@ export function AudioRecordTab() {
         <div className={styles.problem} role="alert" data-testid="audio-record-error" data-reason={state.reason}>
           <p>{state.message}</p>
           <Button size="sm" variant="soft" onClick={() => void recorder.begin()} data-testid="audio-record-retry">
-            {t.audio.record.tryAgain}
+            {audioStrings.record.tryAgain}
           </Button>
         </div>
       ) : null}

@@ -191,6 +191,27 @@ export interface SnapOptions {
   /** When false the result never moves anything (Alt/Cmd held, or snapping disabled). */
   enabled?: boolean
   spacing?: boolean
+  /** Snap edges and centres to this step (page px) when no page/object stop is in range. */
+  grid?: number
+}
+
+/** The nearest multiple of `grid` to `value` within `threshold`, or null. */
+export function gridSnap(value: number, grid: number, threshold: number): number | null {
+  if (!(grid > 0)) return null
+  const target = Math.round(value / grid) * grid
+  return Math.abs(target - value) <= threshold ? target : null
+}
+
+/** The smallest grid-alignment delta of a rectangle's edges and centre, or null when none is in range. */
+function snapAxisToGrid(movers: readonly number[], grid: number, threshold: number): number | null {
+  let best: number | null = null
+  for (const mover of movers) {
+    const target = gridSnap(mover, grid, threshold)
+    if (target === null) continue
+    const delta = target - mover
+    if (best === null || Math.abs(delta) < Math.abs(best)) best = delta
+  }
+  return best
 }
 
 export function computeSnap(moving: Rect, others: readonly Rect[], page: Rect, options: SnapOptions = {}): SnapResult {
@@ -198,21 +219,25 @@ export function computeSnap(moving: Rect, others: readonly Rect[], page: Rect, o
   if (options.enabled === false) return { dx: 0, dy: 0, guides: [], spacing: [] }
   const xSnap = snapAxis(moving, axisStops(others, page, 'x'), 'x', threshold)
   const ySnap = snapAxis(moving, axisStops(others, page, 'y'), 'y', threshold)
-  let dx = xSnap?.delta ?? 0
-  let dy = ySnap?.delta ?? 0
+  const grid = options.grid && options.grid > 0 ? options.grid : 0
+  // The grid is drawn behind the objects, so a grid snap needs no guide line of its own.
+  const xGrid = !xSnap && grid > 0 ? snapAxisToGrid([moving.left, rectCenterX(moving), rectRight(moving)], grid, threshold) : null
+  const yGrid = !ySnap && grid > 0 ? snapAxisToGrid([moving.top, rectCenterY(moving), rectBottom(moving)], grid, threshold) : null
+  let dx = xSnap?.delta ?? xGrid ?? 0
+  let dy = ySnap?.delta ?? yGrid ?? 0
   const guides: SnapGuide[] = []
   if (xSnap) guides.push(...guidesFor(xSnap, { ...moving, left: moving.left + dx }, 'x'))
   if (ySnap) guides.push(...guidesFor(ySnap, { ...moving, top: moving.top + dy }, 'y'))
   const spacing: SpacingHint[] = []
   if (options.spacing !== false) {
-    if (!xSnap) {
+    if (!xSnap && xGrid === null) {
       const s = snapSpacing(moving, others, 'x', threshold)
       if (s) {
         dx = s.delta
         spacing.push(...s.hints)
       }
     }
-    if (!ySnap) {
+    if (!ySnap && yGrid === null) {
       const s = snapSpacing({ ...moving, left: moving.left + dx }, others, 'y', threshold)
       if (s) {
         dy = s.delta
@@ -241,7 +266,7 @@ export interface ResizeSnap {
  * Snapping while resizing: only the edge that is being dragged sticks to the edges and centres of the page and of
  * the other objects, the opposite edge stays where it is.
  */
-export function computeResizeSnap(moving: Rect, others: readonly Rect[], page: Rect, drag: ResizeDrag, threshold = SNAP_THRESHOLD_PX): ResizeSnap {
+export function computeResizeSnap(moving: Rect, others: readonly Rect[], page: Rect, drag: ResizeDrag, threshold = SNAP_THRESHOLD_PX, grid = 0): ResizeSnap {
   const out: ResizeSnap = { dx: 0, dy: 0, guides: [] }
   const nearest = (stops: readonly Stop[], pos: number): Stop | null => {
     let best: Stop | null = null
@@ -258,6 +283,9 @@ export function computeResizeSnap(moving: Rect, others: readonly Rect[], page: R
       out.dx = hit.pos - pos
       const edited = { ...moving, left: drag.x === 'left' ? moving.left + out.dx : moving.left, width: moving.width + (drag.x === 'left' ? -out.dx : out.dx) }
       out.guides.push({ axis: 'x', pos: hit.pos, from: Math.min(hit.from, edited.top), to: Math.max(hit.to, rectBottom(edited)), kind: hit.kind })
+    } else if (grid > 0) {
+      const target = gridSnap(pos, grid, threshold)
+      if (target !== null) out.dx = target - pos
     }
   }
   if (drag.y) {
@@ -267,6 +295,9 @@ export function computeResizeSnap(moving: Rect, others: readonly Rect[], page: R
       out.dy = hit.pos - pos
       const edited = { ...moving, top: drag.y === 'top' ? moving.top + out.dy : moving.top, height: moving.height + (drag.y === 'top' ? -out.dy : out.dy) }
       out.guides.push({ axis: 'y', pos: hit.pos, from: Math.min(hit.from, edited.left), to: Math.max(hit.to, rectRight(edited)), kind: hit.kind })
+    } else if (grid > 0) {
+      const target = gridSnap(pos, grid, threshold)
+      if (target !== null) out.dy = target - pos
     }
   }
   return out

@@ -1,3 +1,4 @@
+import { audioStrings } from '../audio/strings'
 import { act, fireEvent, render, screen, waitFor, within } from '@testing-library/react'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { createBlankDocument } from '@/lib/document'
@@ -9,7 +10,6 @@ import { catalogueStore } from '../audio/library'
 import { readTracks } from '../audio/model'
 import { EditorProvider } from '../EditorProvider'
 import type { EditorEngine } from '../engine/editor'
-import { t } from '../strings'
 import { AudioPanel } from './AudioPanel'
 
 type AudioStock = NonNullable<EditorServices['audioStock']>
@@ -100,25 +100,25 @@ describe('Freesound tab', () => {
 
   it('is hidden without the service or when the server is not configured', async () => {
     engine = await open(null)
-    expect(screen.queryByRole('tab', { name: t.audio.tabs.freesound })).toBeNull()
+    expect(screen.queryByRole('tab', { name: audioStrings.tabs.freesound })).toBeNull()
     engine.dispose()
     document.body.innerHTML = ''
     engine = await open(fakeService({ info: vi.fn(async () => ({ configured: false }) as AudioStockInfo) }))
-    expect(screen.queryByRole('tab', { name: t.audio.tabs.freesound })).toBeNull()
+    expect(screen.queryByRole('tab', { name: audioStrings.tabs.freesound })).toBeNull()
   })
 
   it('searches, shows clean titles and marks sounds that need credit', async () => {
     const service = fakeService()
     engine = await open(service)
-    fireEvent.click(await screen.findByRole('tab', { name: t.audio.tabs.freesound }))
+    fireEvent.click(await screen.findByRole('tab', { name: audioStrings.tabs.freesound }))
     const list = await screen.findByTestId('audio-fs-results')
     expect(within(list).getByText('Whoosh 1')).toBeInTheDocument()
     expect(within(screen.getByTestId('audio-fs-1')).queryByTestId('audio-fs-by')).toBeNull()
-    expect(within(screen.getByTestId('audio-fs-2')).getByTestId('audio-fs-by')).toHaveAccessibleName(t.audio.freesound.creditHint('CC BY 4.0'))
+    expect(within(screen.getByTestId('audio-fs-2')).getByTestId('audio-fs-by')).toHaveAccessibleName(audioStrings.freesound.creditHint('CC BY 4.0'))
     const link = within(screen.getByTestId('audio-fs-2')).getByRole('link')
     expect(link).toHaveAttribute('rel', 'noopener noreferrer')
 
-    fireEvent.click(screen.getByText(t.audio.freesound.types.effects))
+    fireEvent.click(screen.getByText(audioStrings.freesound.types.effects))
     fireEvent.click(await screen.findByRole('button', { name: 'Animals' }))
     await waitFor(() => expect(service.search).toHaveBeenLastCalledWith('', expect.objectContaining({ type: 'effects', subcategory: 'Animals', page: 1 })))
 
@@ -128,7 +128,7 @@ describe('Freesound tab', () => {
 
   it('previews through the server', async () => {
     engine = await open(fakeService())
-    fireEvent.click(await screen.findByRole('tab', { name: t.audio.tabs.freesound }))
+    fireEvent.click(await screen.findByRole('tab', { name: audioStrings.tabs.freesound }))
     const row = await screen.findByTestId('audio-fs-1')
     fireEvent.click(within(row).getByTestId('audio-fs-play'))
     await waitFor(() => expect(within(row).getByTestId('audio-fs-play')).toHaveAttribute('aria-pressed', 'true'))
@@ -137,7 +137,7 @@ describe('Freesound tab', () => {
   it('adds a CC BY sound with its credit, and the panel shows the credits to copy', async () => {
     const service = fakeService()
     engine = await open(service)
-    fireEvent.click(await screen.findByRole('tab', { name: t.audio.tabs.freesound }))
+    fireEvent.click(await screen.findByRole('tab', { name: audioStrings.tabs.freesound }))
     expect(screen.queryByTestId('audio-credits')).toBeNull()
     fireEvent.click(within(await screen.findByTestId('audio-fs-2')).getByTestId('audio-fs-add-design'))
     await waitFor(() => expect(readTracks(engine!.state.doc)).toHaveLength(1))
@@ -145,12 +145,12 @@ describe('Freesound tab', () => {
     expect(added).toMatchObject({ kind: 'sfx', assetId: 'asset-2', credit: { license: 'CC BY 4.0', required: true } })
     const note = await screen.findByTestId('audio-credits')
     expect(within(note).getByTestId('audio-credits-text').textContent).toBe('Sound: "Whoosh_2.wav" by foley_guy (freesound.org/people/foley_guy/sounds/2), CC BY 4.0')
-    expect(screen.getByTestId('audio-track-credit')).toHaveTextContent(t.audio.credits.needed)
+    expect(screen.getByTestId('audio-track-credit')).toHaveTextContent(audioStrings.credits.needed)
   })
 
   it('adds a CC0 sound without any credit note', async () => {
     engine = await open(fakeService())
-    fireEvent.click(await screen.findByRole('tab', { name: t.audio.tabs.freesound }))
+    fireEvent.click(await screen.findByRole('tab', { name: audioStrings.tabs.freesound }))
     fireEvent.click(within(await screen.findByTestId('audio-fs-1')).getByTestId('audio-fs-add-design'))
     await waitFor(() => expect(readTracks(engine!.state.doc)).toHaveLength(1))
     expect(screen.queryByTestId('audio-credits')).toBeNull()
@@ -160,9 +160,9 @@ describe('Freesound tab', () => {
   it('shows an error with a retry when the search fails', async () => {
     const search = vi.fn().mockRejectedValueOnce(new Error('down')).mockResolvedValue(page([sound('1')]))
     engine = await open(fakeService({ search }))
-    fireEvent.click(await screen.findByRole('tab', { name: t.audio.tabs.freesound }))
+    fireEvent.click(await screen.findByRole('tab', { name: audioStrings.tabs.freesound }))
     const problem = await screen.findByTestId('audio-fs-error')
-    fireEvent.click(within(problem).getByRole('button', { name: t.audio.freesound.retry }))
+    fireEvent.click(within(problem).getByRole('button', { name: audioStrings.freesound.retry }))
     expect(await screen.findByTestId('audio-fs-1')).toBeInTheDocument()
   })
 })

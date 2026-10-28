@@ -1,3 +1,4 @@
+import { animationStrings } from '../animation/strings'
 /**
  * The lanes of the timeline: a ruler, one lane per animated object with a bar for each of its animations, the playhead
  * and the end of the page. Bars are dragged (move, or either edge to change the length), snap to a tenth of a second and
@@ -29,7 +30,6 @@ import {
   xToTime,
 } from '../animation/timelineMath'
 import { kindOfDoc } from '../engine/objects/kinds'
-import { t } from '../strings'
 import styles from './Timeline.module.css'
 
 const SLOT_ICON = { enter: LogIn, exit: LogOut, emphasis: Sparkles } as const
@@ -73,9 +73,9 @@ const Bar = memo(function Bar({ span, pxPerMs, late, selected, readOnly, loopEnd
       data-testid={`tl-bar-${span.objectId}-${span.slot}`}
       role="button"
       tabIndex={0}
-      aria-label={t.animation.timeline.bar(slotLabel(span.slot), preset, formatTime(span.startMs, true), formatSeconds(span.anim.durationMs))}
+      aria-label={animationStrings.timeline.bar(slotLabel(span.slot), preset, formatTime(span.startMs, true), formatSeconds(span.anim.durationMs))}
       aria-keyshortcuts={readOnly ? undefined : 'ArrowLeft ArrowRight Alt+ArrowLeft Alt+ArrowRight Delete'}
-      title={readOnly ? undefined : t.animation.timeline.barKeys}
+      title={readOnly ? undefined : animationStrings.timeline.barKeys}
       style={{ left, width }}
       onPointerDown={(e) => onStart(span, (e.target as HTMLElement).dataset.edge === 'start' ? 'start' : (e.target as HTMLElement).dataset.edge === 'end' ? 'end' : 'move', e)}
       onPointerMove={onMove}
@@ -250,12 +250,12 @@ export function TimelineTracks({ lanes, sections, pageId, spans, trackWidth, len
             style={{ width: contentWidth }}
             role="slider"
             tabIndex={0}
-            aria-label={t.animation.timeline.scrub}
+            aria-label={animationStrings.timeline.scrub}
             aria-valuemin={0}
             aria-valuemax={Math.round(length)}
             aria-valuenow={Math.round(playback.state.timeMs)}
             aria-valuetext={formatTime(playback.state.timeMs, true)}
-            title={t.animation.timeline.ruler}
+            title={animationStrings.timeline.ruler}
             data-testid="tl-ruler"
             onPointerDown={(e) => {
               e.currentTarget.setPointerCapture?.(e.pointerId)
@@ -291,15 +291,15 @@ export function TimelineTracks({ lanes, sections, pageId, spans, trackWidth, len
                 </span>
               )
             })}
-            {marker !== null ? <span className={styles.endFlag} data-late={overrun ? true : undefined} style={{ left: timeToX(marker, pxPerMs) }}>{t.animation.timeline.pageEndShort}</span> : null}
+            {marker !== null ? <span className={styles.endFlag} data-late={overrun ? true : undefined} style={{ left: timeToX(marker, pxPerMs) }}>{animationStrings.timeline.pageEndShort}</span> : null}
           </div>
         </div>
         {lanes.map((lane) => {
           const isSelected = selected.has(lane.object.id)
           const name = objectName(lane.object)
           return (
-            <div key={lane.object.id} className={styles.row} data-selected={isSelected || undefined} role="group" aria-label={t.animation.timeline.lane(name)} data-testid={`tl-lane-${lane.object.id}`}>
-              <button type="button" className={styles.laneLabel} aria-pressed={isSelected} title={t.animation.timeline.selectObject(name)} onClick={() => editor.select([lane.object.id])}>
+            <div key={lane.object.id} className={styles.row} data-selected={isSelected || undefined} role="group" aria-label={animationStrings.timeline.lane(name)} data-testid={`tl-lane-${lane.object.id}`}>
+              <button type="button" className={styles.laneLabel} aria-pressed={isSelected} title={animationStrings.timeline.selectObject(name)} onClick={() => editor.select([lane.object.id])}>
                 <KindIcon kind={kindOfDoc(lane.object)} />
                 <span className={styles.laneName}>{name}</span>
               </button>

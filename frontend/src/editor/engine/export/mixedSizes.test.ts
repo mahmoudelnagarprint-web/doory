@@ -4,7 +4,9 @@ import type { DocObject, DocPage, DoryDocument } from '@/types/document'
 import { createMemoryAdapter } from '../../dev/memoryAdapter'
 import { EditorEngine } from '../editor'
 import { runExport } from './exporter'
-import { pageMultiplier } from './formats'
+import './formats'
+import './video/formats'
+import { pageMultiplier } from './size'
 import { DEFAULT_EXPORT_OPTIONS, pageFilename } from './registry'
 
 const rect = (id: string, left: number, top: number): DocObject => ({

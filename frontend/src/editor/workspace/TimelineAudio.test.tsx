@@ -1,3 +1,4 @@
+import { audioStrings } from '../audio/strings'
 import { act, fireEvent, render, screen, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
@@ -12,11 +13,10 @@ import { EditorProvider } from '../EditorProvider'
 import type { EditorEngine } from '../engine/editor'
 import { installPointerEvents } from '../panels/commentsTesting'
 import { AudioSync } from '../panels/AudioSync'
-import { t } from '../strings'
 import { TimelineHost } from './Timeline'
 import { setTimelineView } from './timelineVisibility'
 
-const COPY = t.audio.timeline
+const COPY = audioStrings.timeline
 
 class FakeObserver {
   observe(): void {}
@@ -115,7 +115,7 @@ describe('Timeline audio rows', () => {
     const ctx = await open({ tracks: [track()] })
     engine = ctx.engine
     const bar = screen.getByTestId('tl-audio-bar-a1')
-    expect(bar).toHaveAccessibleName(COPY.bar('Whoosh', t.audio.tracks.kinds.sfx, t.audio.tracks.scopes.page(1), '0:01.0', '2 s'))
+    expect(bar).toHaveAccessibleName(COPY.bar('Whoosh', audioStrings.tracks.kinds.sfx, audioStrings.tracks.scopes.page(1), '0:01.0', '2 s'))
     expect(screen.getByRole('group', { name: COPY.lane('Whoosh') })).toBeInTheDocument()
     expect(bar).toHaveAttribute('data-scope', 'page')
     expect(parseFloat(bar.style.left)).toBeGreaterThan(0)
@@ -152,7 +152,7 @@ describe('Timeline audio rows', () => {
     expect(tracksOf(ctx.engine)[0].trimEndMs).toBe(2100)
     await userEvent.keyboard('{Delete}')
     expect(tracksOf(ctx.engine)).toHaveLength(0)
-    expect(ctx.engine.state.history.undoLabel).toBe(t.audio.history.remove)
+    expect(ctx.engine.state.history.undoLabel).toBe(audioStrings.history.remove)
   })
 
   it('drags a bar to move it, snapping to a tenth of a second, as one undo step', async () => {
@@ -233,7 +233,7 @@ describe('Timeline audio rows', () => {
     const list = screen.getByTestId('tl-audio-list')
     expect(list).toHaveTextContent('Whoosh')
     expect(list).toHaveTextContent('0:01.0')
-    await userEvent.click(within(list).getByRole('button', { name: t.audio.tracks.mute('Whoosh') }))
+    await userEvent.click(within(list).getByRole('button', { name: audioStrings.tracks.mute('Whoosh') }))
     expect(tracksOf(ctx.engine)[0].muted).toBe(true)
   })
 })

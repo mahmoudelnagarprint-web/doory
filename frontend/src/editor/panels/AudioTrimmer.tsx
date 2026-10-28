@@ -1,3 +1,4 @@
+import { audioStrings } from '../audio/strings'
 /**
  * The trim editor of a track: the waveform of the whole file with two handles that choose the part that plays. Dragging
  * with a pointer, the arrow keys (a tenth of a second; Shift: a second) and Home / End all work; every move is
@@ -9,7 +10,6 @@ import { useEditor } from '../context'
 import { MIN_TRIM_MS, clampNumber, trimmedLengthMs } from '../audio/model'
 import { useWaveform } from '../audio/useWaveform'
 import { formatTime } from '../animation/timelineMath'
-import { t } from '../strings'
 import { AudioWaveform } from './AudioWaveform'
 import styles from './Audio.module.css'
 
@@ -29,8 +29,8 @@ export function AudioTrimmer({ track, readOnly, sourceMs }: { track: AudioTrack;
   const move = useCallback(
     (edge: Edge, ms: number, key: string): void => {
       const target = Math.round(ms / FINE) * FINE
-      if (edge === 'start') editor.audio.update(track.id, { trimStartMs: clampNumber(target, 0, track.trimEndMs - MIN_TRIM_MS) }, t.audio.history.trim, key)
-      else editor.audio.update(track.id, { trimEndMs: clampNumber(target, track.trimStartMs + MIN_TRIM_MS, total) }, t.audio.history.trim, key)
+      if (edge === 'start') editor.audio.update(track.id, { trimStartMs: clampNumber(target, 0, track.trimEndMs - MIN_TRIM_MS) }, audioStrings.history.trim, key)
+      else editor.audio.update(track.id, { trimEndMs: clampNumber(target, track.trimStartMs + MIN_TRIM_MS, total) }, audioStrings.history.trim, key)
     },
     [editor, track.id, track.trimStartMs, track.trimEndMs, total],
   )
@@ -56,7 +56,7 @@ export function AudioTrimmer({ track, readOnly, sourceMs }: { track: AudioTrack;
 
   const handle = (edge: Edge) => {
     const value = edge === 'start' ? track.trimStartMs : track.trimEndMs
-    const label = edge === 'start' ? t.audio.tracks.trimStart : t.audio.tracks.trimEnd
+    const label = edge === 'start' ? audioStrings.tracks.trimStart : audioStrings.tracks.trimEnd
     return (
       <div
         className={styles.trimHandle}
@@ -106,7 +106,7 @@ export function AudioTrimmer({ track, readOnly, sourceMs }: { track: AudioTrack;
         {handle('end')}
       </div>
       <p className={styles.trimReadout} data-testid="audio-trim-readout">
-        {t.audio.tracks.trimmed(formatTime(track.trimStartMs, true), formatTime(track.trimEndMs, true), `${(trimmedLengthMs(track) / 1000).toFixed(1)} s`)}
+        {audioStrings.tracks.trimmed(formatTime(track.trimStartMs, true), formatTime(track.trimEndMs, true), `${(trimmedLengthMs(track) / 1000).toFixed(1)} s`)}
       </p>
     </div>
   )

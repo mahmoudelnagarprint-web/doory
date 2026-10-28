@@ -5,14 +5,18 @@
  * the page or the photos already in the slots: those stay where they are and only their frames move.
  * That keeps changing a template cheap and, above all, non-destructive.
  */
-import type { CollageBounds, CollageLayoutId, CollageStyle } from '@/types/document'
+import type { CollageBounds, CollageFrameSpec, CollageLayoutId, CollageMeta, CollageStyle, MaskShape } from '@/types/document'
 
-export const COLLAGE_LAYOUTS: readonly CollageLayoutId[] = ['grid', 'hero', 'mosaic', 'strip', 'masonry', 'polaroid', 'arch']
+/** The seven hand-written templates offered as thumbnails; `custom` is a set of explicit frames. */
+export type BuiltinCollageLayoutId = Exclude<CollageLayoutId, 'custom'>
+
+export const COLLAGE_LAYOUTS: readonly BuiltinCollageLayoutId[] = ['grid', 'hero', 'mosaic', 'strip', 'masonry', 'polaroid', 'arch']
+export const ALL_COLLAGE_LAYOUTS: readonly CollageLayoutId[] = [...COLLAGE_LAYOUTS, 'custom']
 
 export const COLLAGE_MIN_SLOTS = 1
-export const COLLAGE_MAX_SLOTS = 12
+export const COLLAGE_MAX_SLOTS = 16
 
-/** Default black-and-gold atelier frame, scaled to the page like the editor's other presets. */
+/** Default collage frame (warm mat with gold rings), scaled to the page like the editor's other presets. */
 export function defaultCollageStyle(page: { width: number; height: number }): CollageStyle {
   const k = Math.max(0.65, Math.min(page.width, page.height) / 559)
   return {
@@ -41,6 +45,10 @@ export interface CollageFrame {
   width: number
   height: number
   angle: number
+  /** Per-frame crop shape of an explicit layout; absent for the built-in templates. */
+  mask?: MaskShape
+  /** Corner radius of a `rounded` mask, as a fraction of the shorter side (0..0.5). */
+  radius?: number
 }
 
 interface Box {
@@ -204,10 +212,47 @@ export function resolveLayout(
     case 'arch':
       frames = grid(box, n, n <= 2 ? n : n <= 4 ? 2 : 3, g)
       break
+    case 'custom':
     case 'grid':
     default:
       frames = grid(box, n, gridColumns(n), g)
       break
   }
   return rtl ? mirror(frames, box) : frames
+}
+
+/**
+ * Resolves explicit, bounds-relative frames. The specs are already spaced, so `gap` is not used:
+ * `margin` only insets the area they scale into, which keeps a curated or generated layout intact
+ * when the page or its margin changes.
+ */
+export function resolveFrames(
+  specs: readonly CollageFrameSpec[],
+  bounds: CollageBounds,
+  margin: number,
+  rtl: boolean,
+): CollageFrame[] {
+  const box = safeBox(bounds, margin)
+  return specs.slice(0, COLLAGE_MAX_SLOTS).map((spec) => {
+    const x = rtl ? 1 - spec.x - spec.width : spec.x
+    const width = Math.max(1, spec.width * box.width)
+    const height = Math.max(1, spec.height * box.height)
+    const angle = spec.angle ?? 0
+    return {
+      cx: box.x + x * box.width + width / 2,
+      cy: box.y + spec.y * box.height + height / 2,
+      width,
+      height,
+      angle: rtl ? -angle || 0 : angle,
+      ...(spec.mask !== undefined ? { mask: spec.mask } : {}),
+      ...(spec.radius !== undefined ? { radius: spec.radius } : {}),
+    }
+  })
+}
+
+/** The frames of a stored collage: its explicit layout when it has one, otherwise its template. */
+export function framesFor(meta: Pick<CollageMeta, 'layout' | 'frames' | 'bounds' | 'gap' | 'margin' | 'rtl'>, count: number): CollageFrame[] {
+  return meta.frames && meta.frames.length > 0
+    ? resolveFrames(meta.frames, meta.bounds, meta.margin, meta.rtl)
+    : resolveLayout(meta.layout, count, meta.bounds, meta.gap, meta.margin, meta.rtl)
 }

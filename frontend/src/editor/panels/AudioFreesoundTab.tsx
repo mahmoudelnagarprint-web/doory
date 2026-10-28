@@ -1,3 +1,4 @@
+import { audioStrings } from '../audio/strings'
 /**
  * The Freesound tab: search Freesound through the server (music, effects, ambience; the server allows only CC0, or CC0
  * and CC BY), listen to a short preview and add a sound to the design or the page. Adding copies the sound into the
@@ -12,7 +13,6 @@ import { useEditor, useEditorState } from '../context'
 import { useDebounced } from '../hooks/useDebounced'
 import { formatSeconds } from '../animation/timelineMath'
 import { audioRuntime, usePreview } from '../audio/runtime'
-import { t } from '../strings'
 import { Button, IconButton } from '../ui/Button'
 import { Select } from '../ui/Select'
 import { Segmented } from '../ui/Segmented'
@@ -23,7 +23,7 @@ type Info = Extract<AudioStockInfo, { configured: true }>
 type Kind = 'all' | 'music' | 'effects' | 'ambience'
 type Status = 'idle' | 'loading' | 'ready' | 'failed' | 'busy'
 
-const s = t.audio.freesound
+const s = audioStrings.freesound
 
 function Chip({ active, onClick, children }: { active: boolean; onClick(): void; children: React.ReactNode }) {
   return (
@@ -64,7 +64,7 @@ function SoundRow({ sound, canWrite, busy, onAdd }: { sound: StockSound; canWrit
     <li className={styles.fsRow} data-kind={sound.type} data-playing={playing || undefined} data-testid={`audio-fs-${sound.id}`}>
       <div className={styles.fsTop}>
         <IconButton
-          label={playing ? t.audio.library.pause(title) : t.audio.library.preview(title)}
+          label={playing ? audioStrings.library.pause(title) : audioStrings.library.preview(title)}
           variant="soft"
           size="sm"
           className={styles.fsPlay}
@@ -93,13 +93,13 @@ function SoundRow({ sound, canWrite, busy, onAdd }: { sound: StockSound; canWrit
               </Tooltip>
             ) : null}
             {canWrite ? (
-              <IconButton label={t.audio.library.addLabelPage(title)} size="sm" disabled={busy} data-testid="audio-fs-add-page" onClick={() => onAdd('page')}>
+              <IconButton label={audioStrings.library.addLabelPage(title)} size="sm" disabled={busy} data-testid="audio-fs-add-page" onClick={() => onAdd('page')}>
                 <FilePlus size={14} />
               </IconButton>
             ) : null}
           </span>
           {canWrite ? (
-            <IconButton label={t.audio.library.addLabelDesign(title)} size="sm" variant="soft" disabled={busy} data-testid="audio-fs-add-design" onClick={() => onAdd('design')}>
+            <IconButton label={audioStrings.library.addLabelDesign(title)} size="sm" variant="soft" disabled={busy} data-testid="audio-fs-add-design" onClick={() => onAdd('design')}>
               {busy ? <Loader2 size={14} className={styles.spin} /> : <Plus size={14} />}
             </IconButton>
           ) : null}
@@ -117,7 +117,7 @@ function SoundRow({ sound, canWrite, busy, onAdd }: { sound: StockSound; canWrit
         ) : null}
         {mine && preview.error ? (
           <p className={styles.warn} role="alert">
-            {t.audio.library.previewFailed}
+            {audioStrings.library.previewFailed}
           </p>
         ) : null}
       </div>

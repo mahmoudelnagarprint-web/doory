@@ -66,4 +66,18 @@ export const collageStrings = {
   stickerFailed: 'Could not add that sticker.',
   unselected: 'Select a slot on the page to edit its photo.',
   pickSlot: 'Pick a slot from the list below.',
+  stage: 'Stage',
+  panPhoto: 'Pan photo',
+  editFrame: 'Edit frame',
+  stageHint: 'Pan photo moves the picture inside its frame. Edit frame moves, resizes and turns the frame itself; drop it on another slot to swap the two photos.',
+  shape: 'Frame shape',
+  shapes: {
+    rect: 'Rectangle',
+    rounded: 'Rounded',
+    circle: 'Circle',
+    arch: 'Arch',
+    hexagon: 'Hexagon',
+    diamond: 'Diamond',
+    star: 'Star',
+  },
 };

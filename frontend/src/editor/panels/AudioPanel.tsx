@@ -1,3 +1,4 @@
+import { audioStrings } from '../audio/strings'
 /**
  * The Audio tool (a docked sidebar): play the page or the whole design with its sound, add music, effects, uploads or a
  * voiceover from the tabs (Freesound appears when the server has it), and manage the tracks of the design below. A view-only design shows just the transport
@@ -6,7 +7,6 @@
 import { useEffect, useId, useRef, useState } from 'react'
 import type { AudioStockInfo } from '@/types/api'
 import { useEditor, useEditorState } from '../context'
-import { t } from '../strings'
 import { AudioCredits } from './AudioCredits'
 import { AudioFreesoundTab } from './AudioFreesoundTab'
 import { AudioLibraryTab } from './AudioLibraryTab'
@@ -20,10 +20,10 @@ type TabId = 'library' | 'freesound' | 'uploads' | 'record'
 type FreesoundInfo = Extract<AudioStockInfo, { configured: true }>
 
 const ALL_TABS: readonly { id: TabId; label: string }[] = [
-  { id: 'library', label: t.audio.tabs.library },
-  { id: 'freesound', label: t.audio.tabs.freesound },
-  { id: 'uploads', label: t.audio.tabs.uploads },
-  { id: 'record', label: t.audio.tabs.record },
+  { id: 'library', label: audioStrings.tabs.library },
+  { id: 'freesound', label: audioStrings.tabs.freesound },
+  { id: 'uploads', label: audioStrings.tabs.uploads },
+  { id: 'record', label: audioStrings.tabs.record },
 ]
 
 /** Asked once per service: whether the server offers Freesound. Any failure just hides the tab. */
@@ -90,7 +90,7 @@ export function AudioPanel() {
       <AudioCredits />
       {readOnly ? null : (
         <div className={styles.sources}>
-          <div role="tablist" aria-label={t.audio.tabs.label} className={styles.tablist}>
+          <div role="tablist" aria-label={audioStrings.tabs.label} className={styles.tablist}>
             {TABS.map((item, index) => (
               <button
                 key={item.id}

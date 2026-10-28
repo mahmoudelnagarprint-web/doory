@@ -1,8 +1,8 @@
+import { audioStrings } from '../audio/strings'
 import { useEffect, useMemo, useSyncExternalStore } from 'react'
 import type { DoryDocument } from '@/types/document'
 import { useEditor } from '../context'
 import { useLatest } from '../hooks/useLatest'
-import { t } from '../strings'
 import { readTracks } from '../audio/model'
 import { clipTracks } from '../clips/audio'
 import type { SlideshowState } from './machine'
@@ -44,8 +44,8 @@ export function useShowAudio(doc: DoryDocument, plan: MotionPlan, state: Slidesh
     let failed = 0
     return audio.subscribe(() => {
       const now = audio.getSnapshot()
-      if (now.blocked && !blocked) notify.current(t.audio.presenter.blocked)
-      if (now.failed.length > failed) notify.current(t.audio.presenter.failed(now.failed.join(', ')))
+      if (now.blocked && !blocked) notify.current(audioStrings.presenter.blocked)
+      if (now.failed.length > failed) notify.current(audioStrings.presenter.failed(now.failed.join(', ')))
       blocked = now.blocked
       failed = now.failed.length
     })

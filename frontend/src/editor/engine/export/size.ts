@@ -44,3 +44,9 @@ export function parseSize(text: string, width: number, height: number): number |
 export function scaledPixels(width: number, height: number, scale: number): { width: number; height: number } {
   return { width: Math.round(width * scale), height: Math.round(height * scale) }
 }
+
+/** The scale a page is drawn at: the typed size when it reads as one (per page: `1080w` differs by page width), else `scale`. */
+export function pageMultiplier(options: { size?: string | null; scale: number }, size: { width: number; height: number }): number {
+  const scale = options.size ? sizeScale(options.size, size.width, size.height) : null
+  return scale === null ? options.scale : Math.min(MAX_SCALE, Math.max(MIN_SCALE, scale))
+}

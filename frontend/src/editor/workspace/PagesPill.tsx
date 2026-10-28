@@ -46,8 +46,8 @@ export function PagesPill({ stripOpen, onToggleStrip }: PagesPillProps) {
           <StickyNote size={14} aria-hidden="true" />
         </button>
       </Tooltip>
-      <Tooltip label={timelineOpen ? t.animation.timeline.hide : t.animation.timeline.show} shortcut="Shift+T" side="top">
-        <button type="button" className={`${styles.zoomBtn} ${styles.roomy}`} aria-label={timelineOpen ? t.animation.timeline.hide : t.animation.timeline.show} aria-pressed={timelineOpen} data-testid="ed-timeline-toggle" onPointerEnter={() => void LazyTimelineHost.preload()} onFocus={() => void LazyTimelineHost.preload()} onClick={() => toggleTimeline(editor)}>
+      <Tooltip label={timelineOpen ? 'Hide timeline' : 'Show timeline'} shortcut="Shift+T" side="top">
+        <button type="button" className={`${styles.zoomBtn} ${styles.roomy}`} aria-label={timelineOpen ? 'Hide timeline' : 'Show timeline'} aria-pressed={timelineOpen} data-testid="ed-timeline-toggle" onPointerEnter={() => void LazyTimelineHost.preload()} onFocus={() => void LazyTimelineHost.preload()} onClick={() => toggleTimeline(editor)}>
           <Clapperboard size={14} aria-hidden="true" />
         </button>
       </Tooltip>

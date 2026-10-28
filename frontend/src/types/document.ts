@@ -154,7 +154,7 @@ export interface SlotSpec {
  * a page-level schema change. The layout is re-derived from this meta and the current page bounds.
  * ---------------------------------------------------------------------------------------------- */
 
-export type CollageLayoutId = 'grid' | 'hero' | 'mosaic' | 'strip' | 'masonry' | 'polaroid' | 'arch'
+export type CollageLayoutId = 'grid' | 'hero' | 'mosaic' | 'strip' | 'masonry' | 'polaroid' | 'arch' | 'custom'
 
 /** A companion frame object: the museum mat behind a slot, or the inner gold ring above it. */
 export type CollageRole = 'mat' | 'inner'
@@ -178,11 +178,31 @@ export interface CollageStyle {
   shadow?: ShadowSpec
 }
 
+/**
+ * One slot of an explicit (curated or generated) collage layout, in bounds-relative fractions
+ * (0..1). The frames already contain their own spacing, so a generated layout keeps its shape when
+ * the page or the margin changes; `layout` falls back to `custom` while these are present.
+ */
+export interface CollageFrameSpec {
+  x: number
+  y: number
+  width: number
+  height: number
+  /** Degrees; the whole frame (and its picture) turns around its centre. */
+  angle?: number
+  /** Per-frame crop shape. Falls back to the collage style's rounded corners. */
+  mask?: MaskShape
+  /** Corner radius of a `rounded` mask as a fraction of the shorter side (0..0.5). */
+  radius?: number
+}
+
 export interface CollageMeta {
   /** Shared by every slot, mat and inner frame of one collage. */
   id: string
   name?: string
   layout: CollageLayoutId
+  /** Explicit frames for curated/generated layouts; absent for the seven built-in templates. */
+  frames?: CollageFrameSpec[]
   /** Space between slots, and between the slots and the collage bounds. Page px. */
   gap: number
   margin: number

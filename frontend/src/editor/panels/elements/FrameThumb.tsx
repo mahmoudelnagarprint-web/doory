@@ -1,4 +1,5 @@
 import type { MaskShapeId } from '@/types/document'
+import { EXTENDED_FRAMES, getBlobFrame, BLOB_SEEDS } from './FramesAndShapesCatalog'
 
 export interface FrameDefinition {
   id: MaskShapeId
@@ -6,57 +7,11 @@ export interface FrameDefinition {
   path: string
 }
 
+const BLOB_FRAMES = BLOB_SEEDS.map((_, i) => getBlobFrame(i))
+
 export const NATIVE_FRAMES: FrameDefinition[] = [
-  {
-    id: 'circle',
-    name: 'Circle Frame',
-    path: 'M 50, 50 m -46, 0 a 46,46 0 1,0 92,0 a 46,46 0 1,0 -92,0',
-  },
-  {
-    id: 'rounded',
-    name: 'Rounded Frame',
-    path: 'M 14,4 H 86 A 10,10 0 0 1 96,14 V 86 A 10,10 0 0 1 86,96 H 14 A 10,10 0 0 1 4,86 V 14 A 10,10 0 0 1 14,4 Z',
-  },
-  {
-    id: 'blob',
-    name: 'Blob Frame',
-    path: 'M50 4 C74 2 96 20 96 46 C96 74 76 98 48 96 C22 94 4 76 4 50 C4 24 24 6 50 4 Z',
-  },
-  {
-    id: 'heart',
-    name: 'Heart Frame',
-    path: 'M50 92 C16 68 4 50 4 32 C4 16 16 6 30 6 C38 6 46 11 50 19 C54 11 62 6 70 6 C84 6 96 16 96 32 C96 50 84 68 50 92 Z',
-  },
-  {
-    id: 'star',
-    name: 'Star Frame',
-    path: 'M50 4 L64 33 L96 38 L73 60 L78 92 L50 77 L22 92 L27 60 L4 38 L36 33 Z',
-  },
-  {
-    id: 'arch',
-    name: 'Arch Frame',
-    path: 'M 6,96 V 48 A 44,44 0 0 1 94,48 V 96 Z',
-  },
-  {
-    id: 'hexagon',
-    name: 'Hexagon Frame',
-    path: 'M26 6 H74 L96 50 L74 94 H26 L4 50 Z',
-  },
-  {
-    id: 'diamond',
-    name: 'Diamond Frame',
-    path: 'M50 4 L96 50 L50 96 L4 50 Z',
-  },
-  {
-    id: 'triangle',
-    name: 'Triangle Frame',
-    path: 'M50 6 L94 94 H6 Z',
-  },
-  {
-    id: 'cross',
-    name: 'Cross Frame',
-    path: 'M34 4 H66 V34 H96 V66 H66 V96 H34 V66 H4 V34 H34 Z',
-  },
+  ...EXTENDED_FRAMES.filter(f => !f.generator).map(f => ({ id: f.id, name: f.name, path: f.path })),
+  ...BLOB_FRAMES.map(f => ({ id: f.id, name: f.name, path: f.path })),
 ]
 
 export function FrameArtwork({ path, id }: { path: string; id: string }) {

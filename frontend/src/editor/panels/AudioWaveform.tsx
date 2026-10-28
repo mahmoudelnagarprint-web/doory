@@ -1,8 +1,8 @@
+import { audioStrings } from '../audio/strings'
 /** A waveform drawn on a canvas from peaks, with an optional played part and a click-to-seek surface. */
 import { useEffect, useRef } from 'react'
 import { useContrast } from '@/lib/contrast'
 import { type Peaks, barsFor, displayGain } from '../audio/peaks'
-import { t } from '../strings'
 import styles from './Audio.module.css'
 
 interface WaveformProps {
@@ -90,7 +90,7 @@ export function AudioWaveform({ peaks, fromMs = 0, toMs, progress, selectFromMs,
       className={styles.waveform}
       style={{ height }}
       role="img"
-      aria-label={loading && !peaks ? t.audio.waveform.loading : t.audio.waveform.label(name)}
+      aria-label={loading && !peaks ? audioStrings.waveform.loading : audioStrings.waveform.label(name)}
       data-loading={loading && !peaks ? true : undefined}
       data-seekable={onSeek ? true : undefined}
       data-testid="audio-waveform"

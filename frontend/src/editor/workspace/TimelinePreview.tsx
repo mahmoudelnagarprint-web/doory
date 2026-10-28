@@ -1,3 +1,4 @@
+import { animationStrings } from '../animation/strings'
 /**
  * The preview of a page's animation over the artboard: "Play page", and the frame under the timeline's playhead while
  * it is scrubbed. The frame renderer draws the page from the document (the live canvas underneath is not touched, nothing
@@ -172,24 +173,24 @@ function Preview({ scrollRef }: PreviewProps) {
   }, [playback, lengthRef])
 
   useEffect(() => {
-    editor.announce(t.animation.preview.started(index + 1))
-    return () => editor.announce(t.animation.preview.stopped)
+    editor.announce(animationStrings.preview.started(index + 1))
+    return () => editor.announce(animationStrings.preview.stopped)
   }, [editor, index])
 
   const toggle = useCallback(() => playback.toggle(lengthRef.current), [playback, lengthRef])
 
   return (
-    <div ref={shieldRef} className={styles.shield} role="region" aria-label={t.animation.preview.region} data-testid="ed-preview">
+    <div ref={shieldRef} className={styles.shield} role="region" aria-label={animationStrings.preview.region} data-testid="ed-preview">
       <div ref={viewRef} className={styles.view}>
-        <div ref={frameRef} className={styles.frame} role="img" aria-label={t.animation.preview.page(index + 1)} data-status={status} data-testid="ed-preview-frame" onClick={toggle} />
+        <div ref={frameRef} className={styles.frame} role="img" aria-label={animationStrings.preview.page(index + 1)} data-status={status} data-testid="ed-preview-frame" onClick={toggle} />
         {status === 'loading' ? (
           <p className={styles.chip} role="status">
-            {t.animation.preview.preparing}
+            {animationStrings.preview.preparing}
           </p>
         ) : null}
         {status === 'failed' ? (
           <p className={styles.chip} role="alert">
-            {t.animation.preview.failed}{' '}
+            {animationStrings.preview.failed}{' '}
             <button type="button" onClick={() => setAttempt((n) => n + 1)}>
               {t.presenter.retry}
             </button>
@@ -197,13 +198,13 @@ function Preview({ scrollRef }: PreviewProps) {
         ) : null}
       </div>
       <div className={styles.bar} data-playback-controls>
-        <IconButton label={playing ? t.animation.preview.pause : t.animation.preview.play} size="sm" onClick={toggle} data-testid="ed-preview-toggle">
+        <IconButton label={playing ? animationStrings.preview.pause : animationStrings.preview.play} size="sm" onClick={toggle} data-testid="ed-preview-toggle">
           {playing ? <Pause size={16} /> : <Play size={16} />}
         </IconButton>
-        <IconButton label={t.animation.preview.stop} size="sm" shortcut="Esc" onClick={() => playback.stop()} data-testid="ed-preview-stop">
+        <IconButton label={animationStrings.preview.stop} size="sm" shortcut="Esc" onClick={() => playback.stop()} data-testid="ed-preview-stop">
           <Square size={14} />
         </IconButton>
-        <span className={styles.hint}>{t.animation.preview.hint}</span>
+        <span className={styles.hint}>{animationStrings.preview.hint}</span>
       </div>
     </div>
   )

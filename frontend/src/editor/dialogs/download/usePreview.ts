@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react'
 import type { DocPage } from '@/types/document'
 import type { EditorEngine } from '../../engine/editor'
-import { pageMultiplier } from '../../engine/export/formats'
+import { pageMultiplier } from '../../engine/export/size'
 import { encodeRaster } from '../../engine/export/encode'
 import { type RasterFormat, RASTER_MIME, browserEncodes, hasAlpha, isLossy, serverConverts, wantsServer } from '../../engine/export/raster'
 import type { ExportOptions } from '../../engine/export/registry'

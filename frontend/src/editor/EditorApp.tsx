@@ -1,14 +1,11 @@
-import { forwardRef, useCallback, useEffect, useImperativeHandle, useRef, useState, useSyncExternalStore } from 'react'
+import { forwardRef, useCallback, useEffect, useImperativeHandle, useRef, useState } from 'react'
 import type { EditorAppProps, EditorHandle } from '@/types/adapter'
 import './builtins/commands'
 import './builtins/audio'
 import './builtins/clips'
 import './builtins/panels'
 import './builtins/toolbar'
-import './animation/commands'
-import './presenter/commands'
 import './panels/commentsCommands'
-import './engine/export/formats'
 import { CollabBanner } from './collab/CollabBanner'
 import type { CollabSession } from './collab/session'
 import { exposeForTests } from './collab/testHook'
@@ -29,7 +26,6 @@ import { DrawerHost, SidebarHost } from './chrome/ToolHost'
 import { ToolRail } from './chrome/ToolRail'
 import { ContextualToolbar } from './toolbar/ContextualToolbar'
 import { TopBar } from './TopBar'
-import { t } from './strings'
 import { Toaster } from './ui/Toaster'
 import { PageStrip } from './workspace/PageStrip'
 import { LazyTimelineHost } from './workspace/TimelineLoader'
@@ -62,7 +58,6 @@ export const EditorApp = forwardRef<EditorHandle, EditorAppProps>(function Edito
   const [session, setSession] = useState<CollabSession | null>(null)
   const [liveEpoch, setLiveEpoch] = useState(0)
   const realtime = adapter.realtime ?? null
-  const atelier = useSyncExternalStore(engine.store.subscribe, () => engine.state.ui.panelId === 'collage')
 
   useImperativeHandle(
     ref,
@@ -79,6 +74,10 @@ export const EditorApp = forwardRef<EditorHandle, EditorAppProps>(function Edito
   useEffect(() => {
     engine.start()
     engine.persistence.start({ onSaveStateChange: (s) => latest.current.onSaveStateChange?.(s), onUseRealtime: () => setLiveEpoch((n) => n + 1) })
+    void import('./engine/export/formats')
+    void import('./engine/export/video/formats')
+    void import('./animation/commands')
+    void import('./presenter/commands')
     return () => {
       engine.stop()
       setTimeout(() => {
@@ -129,7 +128,7 @@ export const EditorApp = forwardRef<EditorHandle, EditorAppProps>(function Edito
         },
         () => {
           if (stopped) return
-          if (attempt >= COLLAB_LOAD_ATTEMPTS) engine.toast(t.collab.notice.unavailable, 'error')
+          if (attempt >= COLLAB_LOAD_ATTEMPTS) engine.toast('Collaboration unavailable', 'error')
           else timer = window.setTimeout(() => open(attempt + 1), 1000 * 2 ** attempt)
         },
       )
@@ -170,7 +169,7 @@ export const EditorApp = forwardRef<EditorHandle, EditorAppProps>(function Edito
   const onTitle = (title: string): void => latest.current.onTitleChange?.(title)
 
   return (
-    <div ref={setRootEl} className={styles.root} data-editor-root data-collage-studio={atelier ? 'atelier' : undefined} aria-label={t.appLabel} role="application">
+    <div ref={setRootEl} className={styles.root} data-editor-root aria-label="Design editor" role="application">
       <EditorProvider engine={engine} portalRoot={root} collab={session}>
         <ChromeProvider>
           <TopBar start={topBarStart} end={topBarEnd} onTitle={onTitle} onPresent={() => engine.openDialog('presenter')} />

@@ -8,7 +8,7 @@ import { DEFAULT_EXPORT_OPTIONS, type ExportOptions, type ExportStage, type Qual
 import { type PageSelection, copyPageAsPng, downloadFiles, pickPages, runExport } from '../engine/export/exporter'
 import { designPreset, loadLastExport, optimizesByDefault, saveLastExport } from '../engine/export/choices'
 import { FILENAME_STYLES, type FilenameStyle, unixNow } from '../engine/export/filenames'
-import { pageMultiplier } from '../engine/export/formats'
+import { pageMultiplier } from '../engine/export/size'
 import { type RasterFormat, hasAlpha, isLossy, serverConverts } from '../engine/export/raster'
 import { parseSize } from '../engine/export/size'
 import { formatBytes } from '../engine/export/video/estimate'

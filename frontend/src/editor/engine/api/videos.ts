@@ -17,7 +17,8 @@ import { newId } from '@/lib/document'
 import type { DocObject, DoryDocument, ImageFilterSpec } from '@/types/document'
 import { BACKDROP_TIMING_PROPS, type Clip, type ClipFilmstrip, MIN_CLIP_MS, clipPropsFromAsset, clipTimeAt, isClip, readClip } from '../../clips/model'
 import { MAX_TRACKS, createTrack, readTracks, withTracks } from '../../audio/model'
-import { t } from '../../strings'
+import { audioStrings } from '../../audio/strings'
+import { clipStrings } from '../../clips/strings'
 import type { EditorEngine } from '../editor'
 import { createImage } from '../objects/factories'
 import { applyLock, asDory } from '../objects/dory'
@@ -32,7 +33,7 @@ export const BACKDROP_FILTERS: readonly ImageFilterSpec[] = [
   { type: 'blur', value: 1 },
 ]
 
-const labels = t.clips.history
+const labels = clipStrings.history
 
 /** What a clip's settings can be changed to (`ClipPatch` keys map to the object's `video…` props). */
 export interface ClipPatch {
@@ -222,7 +223,7 @@ export class VideosApi {
     const objectId = obj ? asDory(obj).id : undefined
     if (!obj || !objectId || liveClip(obj)?.backdropOf) return false
     if (this.backdropIdsOf(objectId).size > 0) {
-      this.engine.toast(t.clips.toolbar.hasBackdrop, 'info')
+      this.engine.toast(clipStrings.toolbar.hasBackdrop, 'info')
       return false
     }
     const pageId = this.engine.state.activePageId
@@ -237,7 +238,7 @@ export class VideosApi {
     const backdrop: DocObject = {
       ...source,
       id: newId(),
-      name: t.clips.toolbar.backdropName(typeof source.name === 'string' && source.name ? source.name : t.clips.kind),
+      name: clipStrings.toolbar.backdropName(typeof source.name === 'string' && source.name ? source.name : clipStrings.kind),
       left: page.width / 2,
       top: page.height / 2,
       originX: 'center',
@@ -387,9 +388,9 @@ export class VideosApi {
       const img = await createImage({ src: poster, url, assetId: ref.id }, at ?? { x: page.width / 2, y: page.height / 2 }, { width: page.width, height: page.height })
       img.set(clipPropsFromAsset(ref))
       asDory(img).name = ref.name
-      await this.engine.insert.add([img], labels.add, { pageId: target, announce: t.clips.announce.added })
+      await this.engine.insert.add([img], labels.add, { pageId: target, announce: clipStrings.announce.added })
     } catch {
-      this.engine.toast(t.errors.imageLoad, 'error')
+      this.engine.toast('That image could not be loaded.', 'error')
     }
   }
 
@@ -431,13 +432,13 @@ export class VideosApi {
     const doc = this.engine.getDocument()
     const tracks = readTracks(doc)
     if (tracks.length >= MAX_TRACKS) {
-      this.engine.toast(t.audio.errors.limit, 'error')
+      this.engine.toast(audioStrings.errors.limit, 'error')
       return false
     }
     const pageId = this.engine.state.activePageId
     const track = createTrack({
       kind: 'upload',
-      name: asDory(obj).name || t.clips.kind,
+      name: asDory(obj).name || clipStrings.kind,
       src: clip.audioSrc,
       durationMs: clip.durationMs,
       scope: { type: 'page', pageId },
@@ -451,7 +452,7 @@ export class VideosApi {
     const next: DoryDocument = withTracks({ ...doc, pages }, [...tracks, track])
     this.engine.applyDocument(next, { label: labels.detachAudio, selection: [objectId] })
     this.engine.refreshSelection() // the toolbar reads the clip's settings from the selection
-    this.engine.announce(t.clips.announce.detached)
+    this.engine.announce(clipStrings.announce.detached)
     return true
   }
 

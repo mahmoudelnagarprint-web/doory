@@ -12,6 +12,8 @@ import { migrateDocument } from './migrations'
 import { AnimationApi } from './api/animation'
 import { AudioApi } from './api/audio'
 import { VideosApi } from './api/videos'
+import { CollageApi } from './api/collage'
+import type { CollageStageMode } from './collage/stage'
 import { ArrangeApi } from './api/arrange'
 import { ClipboardApi } from './api/clipboard'
 import { CropApi } from './api/crop'
@@ -140,7 +142,7 @@ export class EditorEngine implements PageCanvasHost {
   private liveRaf = 0
   private disposed = false
   private readonly unsubscribePresets: () => void
-  /** The editor root whose CSS variables theme the canvases; the Atelier mode is one of its attributes. */
+  /** The editor root whose CSS variables theme the canvases (theme and contrast changes are observed on it). */
   private themeRoot: Element | null = null
   private themeRootObserver: MutationObserver | null = null
   private live: LiveSession | null = null
@@ -196,15 +198,12 @@ export class EditorEngine implements PageCanvasHost {
 
   get collage(): import('./api/collage').CollageApi {
     if (!this._collage) {
-      // Lazy-load CollageApi to keep it out of the initial editor bundle.
-      // eslint-disable-next-line @typescript-eslint/no-var-requires
-      const mod = require('./api/collage') as typeof import('./api/collage')
-      this._collage = new mod.CollageApi(this)
+      this._collage = new CollageApi(this)
     }
     return this._collage
   }
 
-  /** Lets the mounted editor root provide the canvas tokens (and tells the canvases when Atelier mode changes). */
+  /** Lets the mounted editor root provide the canvas tokens (the canvases re-read them when it changes). */
   setThemeRoot(root: Element | null): void {
     this.themeRoot = root
     this.observeThemeRoot()
@@ -219,6 +218,9 @@ export class EditorEngine implements PageCanvasHost {
   }
   get snapEnabled(): boolean {
     return this.state.ui.snapping
+  }
+  get stageMode(): CollageStageMode {
+    return this.state.ui.stageMode
   }
   get showGuides(): boolean {
     return this.state.ui.guides
@@ -714,6 +716,12 @@ export class EditorEngine implements PageCanvasHost {
     void this.insert.fillPlaceholder(pageId, id)
   }
 
+  /** Two collage frames were dropped on each other in `edit-frame` mode: trade their photos. */
+  onSwapSlots(pageId: string, sourceId: string, targetId: string): void {
+    if (pageId !== this.state.activePageId || this.state.readOnly) return
+    void this.collage.swapSlots(sourceId, targetId)
+  }
+
   onToolDone(): void {
     this.setTool('select')
   }
@@ -839,7 +847,7 @@ export class EditorEngine implements PageCanvasHost {
     this.themeRootObserver = null
     if (!this.themeRoot || typeof MutationObserver === 'undefined') return
     this.themeRootObserver = new MutationObserver(() => this.refreshTheme())
-    this.themeRootObserver.observe(this.themeRoot, { attributes: true, attributeFilter: ['class', 'data-theme', 'data-collage-studio'] })
+    this.themeRootObserver.observe(this.themeRoot, { attributes: true, attributeFilter: ['class', 'data-theme'] })
   }
 
   private watchTheme(): () => void {

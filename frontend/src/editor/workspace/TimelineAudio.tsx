@@ -1,3 +1,4 @@
+import { audioStrings } from '../audio/strings'
 /**
  * The audio rows of the timeline (a registered section, `animation/sections.ts`): one row per track that sounds on the
  * page in view, on the page's own clock. A bar shows the part of the sound that plays, as a waveform; drag it to move
@@ -24,11 +25,10 @@ import { type TimelineItem, type TrackTimes, moveEdit, timesOf, trimEndEdit, tri
 import { useTimelineItems } from '../audio/useTimelineItems'
 import { useWaveform } from '../audio/useWaveform'
 import { AudioWaveform } from '../panels/AudioWaveform'
-import { t } from '../strings'
 import { TimelineRow } from './TimelineRow'
 import styles from './TimelineAudio.module.css'
 
-const COPY = t.audio.timeline
+const COPY = audioStrings.timeline
 const KIND_ICON: Record<AudioTrackKind, typeof Music> = { music: Music, voiceover: Mic, sfx: Sparkles, upload: FileAudio }
 const BAR_KEY_MS = 1000
 
@@ -72,8 +72,8 @@ const Bar = memo(function Bar({ item, pxPerMs, readOnly, dim, onStart, onMove, o
   const waveWidth = Math.max(0, timeToX(windowEnd - visStart, pxPerMs))
   const fromMs = track.trimStartMs + (visStart - item.startMs)
   const toMs = track.trimStartMs + (windowEnd - item.startMs)
-  const name = track.name || t.audio.tracks.kinds[track.kind]
-  const label = COPY.bar(name, t.audio.tracks.kinds[track.kind], scopeLabel(track, pages), formatTime(Math.max(0, item.startMs), true), formatSeconds(trimmedLengthMs(track)))
+  const name = track.name || audioStrings.tracks.kinds[track.kind]
+  const label = COPY.bar(name, audioStrings.tracks.kinds[track.kind], scopeLabel(track, pages), formatTime(Math.max(0, item.startMs), true), formatSeconds(trimmedLengthMs(track)))
   const part = (e: React.PointerEvent<HTMLDivElement>): Part => ((e.target as HTMLElement).dataset.edge === 'start' ? 'start' : (e.target as HTMLElement).dataset.edge === 'end' ? 'end' : 'move')
 
   return (
@@ -120,15 +120,15 @@ interface RowSwitchProps {
 function RowSwitches({ track, soloed, readOnly }: RowSwitchProps) {
   const editor = useEditor()
   const { player } = audioRuntime(editor)
-  const name = track.name || t.audio.tracks.kinds[track.kind]
+  const name = track.name || audioStrings.tracks.kinds[track.kind]
   return (
     <span className={styles.switches} data-active={track.muted || soloed || undefined}>
       <button
         type="button"
         className={styles.switch}
         aria-pressed={track.muted}
-        aria-label={track.muted ? t.audio.tracks.unmute(name) : t.audio.tracks.mute(name)}
-        title={track.muted ? t.audio.tracks.unmute(name) : t.audio.tracks.mute(name)}
+        aria-label={track.muted ? audioStrings.tracks.unmute(name) : audioStrings.tracks.mute(name)}
+        title={track.muted ? audioStrings.tracks.unmute(name) : audioStrings.tracks.mute(name)}
         disabled={readOnly}
         data-testid={`tl-audio-mute-${track.id}`}
         onClick={() => editor.audio.setMuted(track.id, !track.muted)}
@@ -202,11 +202,11 @@ export function AudioSection({ pageId, pxPerMs, contentWidth, readOnly }: Timeli
         const length = d.fullEndMs - d.startMs
         const endSnap = snapTime(wanted + length, d.targets, threshold) - length
         const start = Math.abs(startSnap - wanted) <= Math.abs(endSnap - wanted) ? startSnap : endSnap
-        editor.audio.update(d.id, moveEdit(d.from, start - d.startMs), t.audio.history.move, key)
+        editor.audio.update(d.id, moveEdit(d.from, start - d.startMs), audioStrings.history.move, key)
       } else if (d.part === 'start') {
-        editor.audio.update(d.id, trimStartEdit(d.from, snapTime(wanted, d.targets, threshold) - d.startMs), t.audio.history.trim, key)
+        editor.audio.update(d.id, trimStartEdit(d.from, snapTime(wanted, d.targets, threshold) - d.startMs), audioStrings.history.trim, key)
       } else {
-        editor.audio.update(d.id, trimEndEdit(d.from, snapTime(wanted, d.targets, threshold) - d.fullEndMs, d.sourceMs), t.audio.history.trim, key)
+        editor.audio.update(d.id, trimEndEdit(d.from, snapTime(wanted, d.targets, threshold) - d.fullEndMs, d.sourceMs), audioStrings.history.trim, key)
       }
     },
     [editor, pxPerMs],
@@ -226,8 +226,8 @@ export function AudioSection({ pageId, pxPerMs, contentWidth, readOnly }: Timeli
       if (e.key === 'ArrowLeft' || e.key === 'ArrowRight') {
         e.preventDefault()
         const delta = (e.key === 'ArrowLeft' ? -1 : 1) * amount
-        if (e.altKey) editor.audio.update(id, trimEndEdit(timesOf(item.track), delta, item.track.durationMs ?? item.track.trimEndMs), t.audio.history.trim, `audio-bar-key:${id}:end`)
-        else editor.audio.update(id, moveEdit(timesOf(item.track), delta), t.audio.history.move, `audio-bar-key:${id}:move`)
+        if (e.altKey) editor.audio.update(id, trimEndEdit(timesOf(item.track), delta, item.track.durationMs ?? item.track.trimEndMs), audioStrings.history.trim, `audio-bar-key:${id}:end`)
+        else editor.audio.update(id, moveEdit(timesOf(item.track), delta), audioStrings.history.move, `audio-bar-key:${id}:move`)
       } else if (e.key === 'Delete' || e.key === 'Backspace') {
         e.preventDefault()
         e.stopPropagation()
@@ -254,7 +254,7 @@ export function AudioSection({ pageId, pxPerMs, contentWidth, readOnly }: Timeli
       {items.map((item) => {
         const { track } = item
         const Icon = KIND_ICON[track.kind]
-        const name = track.name || t.audio.tracks.kinds[track.kind]
+        const name = track.name || audioStrings.tracks.kinds[track.kind]
         const soloed = player.soloId === track.id
         return (
           <TimelineRow
@@ -289,7 +289,7 @@ export function AudioList({ pageId, readOnly }: { pageId: string; readOnly: bool
   return (
     <ul className={styles.list} aria-label={COPY.group} data-testid="tl-audio-list">
       {items.map(({ track, startMs, endMs, scopeEndMs }) => {
-        const name = track.name || t.audio.tracks.kinds[track.kind]
+        const name = track.name || audioStrings.tracks.kinds[track.kind]
         return (
           <li key={track.id} className={styles.listItem} data-muted={track.muted || undefined}>
             <span className={styles.listName}>{name}</span>
@@ -297,7 +297,7 @@ export function AudioList({ pageId, readOnly }: { pageId: string; readOnly: bool
               {scopeLabel(track, pages)} · {formatTime(Math.max(0, startMs), true)} to {formatTime(Math.min(endMs, scopeEndMs), true)}
             </span>
             {readOnly ? null : (
-              <button type="button" className={styles.switch} aria-pressed={track.muted} aria-label={track.muted ? t.audio.tracks.unmute(name) : t.audio.tracks.mute(name)} onClick={() => editor.audio.setMuted(track.id, !track.muted)}>
+              <button type="button" className={styles.switch} aria-pressed={track.muted} aria-label={track.muted ? audioStrings.tracks.unmute(name) : audioStrings.tracks.mute(name)} onClick={() => editor.audio.setMuted(track.id, !track.muted)}>
                 {track.muted ? <VolumeX size={14} aria-hidden="true" /> : <Volume2 size={14} aria-hidden="true" />}
               </button>
             )}

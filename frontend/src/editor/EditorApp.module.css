@@ -42,44 +42,6 @@
 }
 
 /*
- * Smart Collage Studio's Atelier mode: matte black, warm ivory text and Royal Gold. It is scoped to the editor
- * root while the Collage panel is open, so the rest of Doory keeps its lilac theme.
- */
-.root[data-collage-studio='atelier'] {
-  --ed-bg: #070708;
-  --ed-surface: #101013;
-  --ed-surface-2: #0b0b0d;
-  --ed-surface-3: #18181d;
-  --ed-surface-hover: #1e1e25;
-  --ed-border: #302a1b;
-  --ed-border-light: #1d1b15;
-  --ed-text: #f4efe2;
-  --ed-text-dim: #a99e88;
-  --ed-accent: #d4af37;
-  --ed-accent-hover: #e7c75d;
-  --ed-accent-glow: rgba(212, 175, 55, 0.16);
-  --ed-canvas-bg: #060607;
-  --ed-danger: #e07b72;
-  --ed-danger-dim: rgba(224, 123, 114, 0.14);
-  --selection-color: #d4af37;
-  --guide-color: #d4af37;
-  --color-brand: #d4af37;
-  --color-brand-hover: #e7c75d;
-  --color-brand-soft: rgba(212, 175, 55, 0.16);
-  --color-cta: #d4af37;
-  --color-cta-hover: #e7c75d;
-  --color-on-cta: #0a0a0b;
-  --color-surface: #101013;
-  --color-bg-subtle: #0b0b0d;
-  --color-bg-muted: #18181d;
-  --color-border: #302a1b;
-  --color-text: #f4efe2;
-  --color-text-muted: #a99e88;
-  --color-text-subtle: #a99e88;
-  --color-canvas-workspace: #060607;
-}
-
-/*
  * High contrast: the light dividers use a background colour (--color-bg-muted), so they get the border colour, and the
  * pale focus halo on text fields becomes the real focus ring.
  */

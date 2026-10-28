@@ -1,3 +1,4 @@
+import { audioStrings } from '../audio/strings'
 import { act, fireEvent, render, screen, waitFor, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
@@ -8,10 +9,9 @@ import { catalogueStore } from '../audio/library'
 import { AudioFileError } from '../audio/files'
 import { EditorProvider } from '../EditorProvider'
 import type { EditorEngine } from '../engine/editor'
-import { t } from '../strings'
 import { AudioPanel } from './AudioPanel'
 
-const COPY = t.audio
+const COPY = audioStrings
 
 const music = (id: string, title: string, mood: string, genre: string, durationMs: number, extra: Record<string, unknown> = {}) => ({
   id,

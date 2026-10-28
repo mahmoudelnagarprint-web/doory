@@ -1,3 +1,4 @@
+import { animationStrings } from '../animation/strings'
 /**
  * A tile of the Animate panel: the preset's name under a small picture of what it does. The picture shows the
  * animation half way through; while the tile is hovered or focused it plays, and when the system asks for reduced motion
@@ -8,7 +9,6 @@ import type { Anim, PageTransition } from '@/types/document'
 import { type ThumbColors, drawAnimationThumb, drawTransitionThumb, loopTime, stillTime } from '../animation/thumbnail'
 import { useReducedMotion } from '../animation/useReducedMotion'
 import { THUMB_PAGE } from '../animation/thumbnail'
-import { t } from '../strings'
 import styles from './Animate.module.css'
 
 const SCALE = 2
@@ -84,7 +84,7 @@ export const AnimateThumb = memo(function AnimateThumb({ label, subject, selecte
       className={`${styles.thumb} ${selected ? styles.thumbOn : ''}`}
       aria-pressed={selected}
       aria-label={label}
-      title={reduced ? label : t.animation.panel.preview(label)}
+      title={reduced ? label : animationStrings.panel.preview(label)}
       data-testid={testId}
       onClick={onPick}
       onPointerEnter={play}

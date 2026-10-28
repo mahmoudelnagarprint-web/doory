@@ -2,8 +2,7 @@
  * All user-visible English strings of the editor live here so they can be translated later without
  * touching components. Functions are used where a string needs interpolation or pluralisation.
  */
-import { animationStrings } from './animation/strings'
-import { audioStrings } from './audio/strings'
+
 import { clipStrings } from './clips/strings'
 import { collab } from './collab/strings'
 import { print } from './dialogs/print/strings'
@@ -296,21 +295,6 @@ export const t = {
     hide: 'Hide page thumbnails',
     group: 'Pages',
     add: 'Add page',
-  },
-  rail: {
-    text: 'Text',
-    elements: 'Stickers',
-    image: 'Images',
-    assets: 'Assets',
-    animate: 'Animate',
-    shapes: 'Shapes',
-    templates: 'Templates',
-    background: 'Background',
-    brand: 'Brand',
-    layers: 'Layers',
-    comments: 'Comments',
-    audio: 'Audio',
-    videos: 'Videos',
   },
 
   panels: {
@@ -1595,7 +1579,5 @@ export const t = {
   collab,
   print,
   video: videoStrings,
-  animation: animationStrings,
-  audio: audioStrings,
   clips: clipStrings,
 } as const

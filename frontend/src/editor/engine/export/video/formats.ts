@@ -4,15 +4,10 @@
  * encoder load (with `import()`) when a file is actually made.
  */
 import { t } from '../../../strings'
-import type { EditorEngine } from '../../editor'
 import { pageSize } from '../../docOps'
 import { type ExportContext, type ExportFile, exportFilename, registerExportFormat } from '../registry'
 import { type VideoFormat, defaultVideoOptions } from './options'
-
-/** What the pipeline needs of the editor: how pictures and fonts load, and how the sound files are read. */
-export function hostOf(engine: EditorEngine): { loadContext: EditorEngine['loadContext']; loadSound: EditorEngine['audio']['sources']['load'] } {
-  return { loadContext: engine.loadContext, loadSound: engine.audio.sources.load }
-}
+import { hostOf } from './host'
 
 async function runVideo(format: VideoFormat, ctx: ExportContext): Promise<ExportFile[]> {
   const { runVideoExport } = await import('./pipeline')

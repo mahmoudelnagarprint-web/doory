@@ -37,6 +37,17 @@ describe('searchIcons', () => {
     expect(page.nextStart).toBe(3)
   })
 
+  it('restricts the search to the given prefixes', async () => {
+    const fetchMock = vi.fn(async (_input: RequestInfo | URL) => json({ icons: ['noto:dog-face'], total: 1, limit: 3, start: 0 }))
+    vi.stubGlobal('fetch', fetchMock)
+
+    const page = await searchIcons('dog', { limit: 3, prefixes: ['noto', 'twemoji'] })
+
+    const url = String(fetchMock.mock.calls[0][0])
+    expect(url).toContain('prefixes=noto%2Ctwemoji')
+    expect(page.icons.map((icon) => icon.id)).toEqual(['noto:dog-face'])
+  })
+
   it('does not call the API for an empty search', async () => {
     const fetchMock = vi.fn()
     vi.stubGlobal('fetch', fetchMock)

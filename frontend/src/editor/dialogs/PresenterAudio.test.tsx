@@ -1,3 +1,4 @@
+import { audioStrings } from '../audio/strings'
 import { act, fireEvent, render, screen, waitFor } from '@testing-library/react'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { createBlankDocument } from '@/lib/document'
@@ -6,7 +7,6 @@ import { FakeContext, fakeBuffer } from '../audio/testing'
 import { createMemoryAdapter } from '../dev/memoryAdapter'
 import { EditorProvider } from '../EditorProvider'
 import { EditorEngine } from '../engine/editor'
-import { t } from '../strings'
 import { Presenter } from './Presenter'
 
 vi.mock('../presenter/frames', () => {
@@ -105,7 +105,7 @@ describe('Presenter sound', () => {
     await waitFor(() => expect(ctx.context.sources).toHaveLength(1))
     expect(ctx.context.sources[0]).toMatchObject({ loop: true })
     const button = screen.getByTestId('present-sound')
-    expect(button).toHaveAccessibleName(t.audio.presenter.sound)
+    expect(button).toHaveAccessibleName(audioStrings.presenter.sound)
     expect(button).toHaveAttribute('aria-pressed', 'true')
     // The master gain is at 1 until the presenter switches the sound off.
     expect(ctx.context.gains[0].gain.value).toBe(1)
@@ -150,7 +150,7 @@ describe('Presenter sound', () => {
     context.refuseResume = true
     const ctx = await setup([track()], context)
     engine = ctx.engine
-    expect(await screen.findByTestId('present-message')).toHaveTextContent(t.audio.presenter.blocked)
+    expect(await screen.findByTestId('present-message')).toHaveTextContent(audioStrings.presenter.blocked)
     context.refuseResume = false
     await key('x')
     await waitFor(() => expect(context.state).toBe('running'))
@@ -162,7 +162,7 @@ describe('Presenter sound', () => {
       return fakeBuffer(30)
     })
     engine = ctx.engine
-    expect(await screen.findByTestId('present-message')).toHaveTextContent(t.audio.presenter.failed('Lost song'))
+    expect(await screen.findByTestId('present-message')).toHaveTextContent(audioStrings.presenter.failed('Lost song'))
     expect(ctx.context.sources).toHaveLength(1)
   })
 })
