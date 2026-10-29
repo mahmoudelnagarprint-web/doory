@@ -1,4 +1,5 @@
-// @ts-nocheck\n/**
+/* eslint-disable @typescript-eslint/no-explicit-any, @typescript-eslint/no-unused-vars, prefer-const */
+/**
  * Smart Design Deconstructor — Rotated Frame Detector + Foreground Occlusion Layer.
  *
  * Takes a flat raster template image and recovers the true tilted photo frames
@@ -10,11 +11,9 @@
  *
  * Everything runs client-side on a hidden OffscreenCanvas. No server, no paid API.
  */
-import type { DeconstructorOptions, MaskShape, Point2D, Rect2D, RotatedFrame } from './types'
+import type { DeconstructorOptions, Point2D, Rect2D, RotatedFrame } from './types'
 
-// @ts-nocheck\n/** -------- Colour space helpers -------- */
 
-// @ts-nocheck\n/** Approximate CIE L* from sRGB (D65). Good enough for adaptive segmentation. */
 function rgbToLuminance(r: number, g: number, b: number): number {
   // Rec. 709 relative luminance → approx CIE L* = 116 * f(Y)^(1/3) - 16
   const lin = (c: number) => {
@@ -25,7 +24,6 @@ function rgbToLuminance(r: number, g: number, b: number): number {
   return Y <= 0.008856 ? 903.3 * Y : 116 * Math.pow(Y, 1 / 3) - 16
 }
 
-// @ts-nocheck\n/** Distance between two colours in pseudo-L*a*b* (we approximate a*, b* as chroma). */
 function colourDistance(a: { r: number; g: number; b: number }, bCol: { r: number; g: number; b: number }): number {
   const da = a.r - bCol.r
   const dg = a.g - bCol.g
@@ -33,7 +31,6 @@ function colourDistance(a: { r: number; g: number; b: number }, bCol: { r: numbe
   return Math.sqrt(da * da + dg * dg + db * db)
 }
 
-// @ts-nocheck\n/** -------- Image raster helpers -------- */
 
 interface Raster {
   width: number
@@ -58,7 +55,6 @@ function loadImageAsRaster(url: string): Promise<Raster> {
   })
 }
 
-// @ts-nocheck\n/** -------- Flood-fill connected components over a boolean mask -------- */
 
 interface Component {
   pixels: Point2D[]
@@ -104,9 +100,7 @@ function connectedComponents(mask: Uint8Array, width: number, height: number): C
   return out
 }
 
-// @ts-nocheck\n/** -------- Paper segmentation (L*a*b* adaptive) -------- */
 
-// @ts-nocheck\n/** Binary mask of bright/cream/white paper regions inside luminance threshold. */
 function paperMask(raster: Raster, luminanceThreshold: number): Uint8Array {
   const { width, height, data } = raster
   const mask = new Uint8Array(width * height)
@@ -121,17 +115,7 @@ function paperMask(raster: Raster, luminanceThreshold: number): Uint8Array {
   return mask
 }
 
-// @ts-nocheck\n/** -------- Minimum-area rotated rectangle (OBB) reconstruction -------- */
 
-// @ts-nocheck\n/** Rotate a point around origin by deg degrees CCW. */
-function rotatePoint(x: number, y: number, deg: number): { x: number; y: number } {
-  const rad = (deg * Math.PI) / 180
-  const cos = Math.cos(rad)
-  const sin = Math.sin(rad)
-  return { x: x * cos - y * sin, y: x * sin + y * cos }
-}
-
-// @ts-nocheck\n/** Fit an OBB to a set of points by rotating through candidate angles and taking min area. */
 function minimumAreaRectangle(points: Point2D[]): RotatedFrame {
   // Candidate angles from dominant edges: sample every 1 degree 0..180.
   let best: { cx: number; cy: number; w: number; h: number; angle: number; area: number } | null = null
@@ -191,9 +175,7 @@ function minimumAreaRectangle(points: Point2D[]): RotatedFrame {
   }
 }
 
-// @ts-nocheck\n/** -------- Occlusion mask extraction -------- */
 
-// @ts-nocheck\n/** Pixels inside the rotated frame rectangle that deviate from paper colour → foreground. */
 function occlusionMask(
   raster: Raster,
   frame: RotatedFrame,
@@ -251,7 +233,6 @@ function occlusionMask(
   return mask
 }
 
-// @ts-nocheck\n/** Build transparent PNG data URL from an alpha mask + tint colour. */
 function maskToPngDataUrl(mask: Uint8Array, width: number, height: number, tint = 'rgba(0,0,0,0.6)'): string {
   const canvas = new OffscreenCanvas(width, height)
   const ctx = canvas.getContext('2d')
@@ -274,7 +255,6 @@ function maskToPngDataUrl(mask: Uint8Array, width: number, height: number, tint 
   return (canvas as any).toDataURL ? (canvas as any).toDataURL('image/png') : ''
 }
 
-// @ts-nocheck\n/** Sample average colour inside a rotated frame at its centre. */
 function samplePaperColor(raster: Raster, frame: RotatedFrame): { r: number; g: number; b: number } {
   const { width, height, data } = raster
   const rad = (frame.angle * Math.PI) / 180
@@ -303,9 +283,8 @@ function samplePaperColor(raster: Raster, frame: RotatedFrame): { r: number; g: 
   return { r: Math.round(r / n), g: Math.round(g / n), b: Math.round(b / n) }
 }
 
-// @ts-nocheck\n/** -------- Main entry: detectSmartLayeredFrames -------- */
 
-// @ts-nocheck\n/**
+/**
  * Detect rotated photo frames in a flat template image and build occlusion overlays.
  *
  * Steps:

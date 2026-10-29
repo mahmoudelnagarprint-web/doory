@@ -1,3 +1,4 @@
+/* eslint-disable @typescript-eslint/no-explicit-any, @typescript-eslint/no-unused-vars, prefer-const */
 import { describe, test, expect } from 'vitest'
 
 /* Lightweight polyfills so client-side CV algorithms run in Node/Vitest. */

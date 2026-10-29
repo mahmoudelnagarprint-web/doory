@@ -1,4 +1,4 @@
-// @ts-nocheck
+/* eslint-disable @typescript-eslint/no-explicit-any, @typescript-eslint/no-unused-vars, prefer-const */
 /**
  * Deconstruct Studio Modal — Smart Design Deconstructor.
  *
@@ -25,8 +25,8 @@ export interface DeconstructStudioModalProps {
 export default function DeconstructStudioModal({ imageUrl, width = 1200, height = 800, onBuild, onClose }: DeconstructStudioModalProps) {
   const [isLoading, setIsLoading] = useState(false)
   const [frames, setFrames] = useState<RotatedFrame[]>([])
-  const [elements, setElements] = useState<DetachedElement[]>([])
-  const [textCards, setTextCards] = useState<DetectedTextCard[]>([])
+  const [elements, _setElements] = useState<DetachedElement[]>([])
+  const [textCards, _setTextCards] = useState<DetectedTextCard[]>([])
   const [mode, setMode] = useState<'auto-detect' | 'detach' | 'erase-text' | 'build'>('auto-detect')
   const [result, setResult] = useState<DeconstructionResult | null>(null)
 

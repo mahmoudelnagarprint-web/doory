@@ -1,4 +1,5 @@
-// @ts-nocheck\n/**
+/* eslint-disable @typescript-eslint/no-explicit-any, @typescript-eslint/no-unused-vars, prefer-const */
+/**
  * Smart Design Deconstructor — Text Isolation, Clean Erasure & Live Typography.
  *
  * Detects raster text on quote cards inside a flat template, erases it cleanly from the paper
@@ -10,9 +11,7 @@
 import type { DeconstructorOptions, DetectedTextCard, InpaintResult, Rect2D, Raster } from './types'
 import { inpaintHole } from './elementDetacher'
 
-// @ts-nocheck\n/** -------- Binarisation (adaptive threshold) -------- */
 
-// @ts-nocheck\n/** Adaptive Otsu-like threshold using a sliding block mean. Returns binary ink mask in grayscale ImageData. */
 export function binarizeInk(raster: Raster, blockSize = 31, c = 5): Uint8Array {
   const { width, height, data } = raster
   const mask = new Uint8Array(width * height)
@@ -42,7 +41,6 @@ export function binarizeInk(raster: Raster, blockSize = 31, c = 5): Uint8Array {
   return mask
 }
 
-// @ts-nocheck\n/** -------- Connected components over binary mask -------- */
 
 
 function connectedComponents(mask: Uint8Array, width: number, height: number): { bbox: Rect2D; pixelCount: number }[] {
@@ -81,7 +79,6 @@ function connectedComponents(mask: Uint8Array, width: number, height: number): {
   return out
 }
 
-// @ts-nocheck\n/** -------- Colour sampling -------- */
 
 function sampleInkColor(raster: Raster, region: Rect2D): string {
   const { width, height, data } = raster
@@ -127,9 +124,7 @@ function samplePaperColor(raster: Raster, region: Rect2D, padding = 4): string {
   return `rgb(${Math.round(r / n)},${Math.round(g / n)},${Math.round(b / n)})`
 }
 
-// @ts-nocheck\n/** -------- Live text layer spawn -------- */
 
-// @ts-nocheck\n/** Turn a detected text region into a live editable text layer descriptor. */
 export function spawnLiveTextLayer(detected: DetectedTextCard): DetectedTextCard {
   return {
     ...detected,
@@ -140,9 +135,8 @@ export function spawnLiveTextLayer(detected: DetectedTextCard): DetectedTextCard
   }
 }
 
-// @ts-nocheck\n/** -------- Public API -------- */
 
-// @ts-nocheck\n/**
+/**
  * Detect text components on the template's quote cards and erase them (Telea inpaint).
  */
 export async function detectAndEraseText(

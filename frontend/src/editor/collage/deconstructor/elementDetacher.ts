@@ -1,4 +1,5 @@
-// @ts-nocheck\n/**
+/* eslint-disable @typescript-eslint/no-explicit-any, @typescript-eslint/no-unused-vars, prefer-const */
+/**
  * Smart Design Deconstructor — Element Detacher + Background Inpainting.
  *
  * Allows the user to isolate and move any decorative element (flower, bow, card, pin,
@@ -9,7 +10,6 @@
  */
 import type { DeconstructorOptions, InpaintResult, Point2D, Rect2D, Raster } from './types'
 
-// @ts-nocheck\n/** -------- Types -------- */
 
 type PixelMask = Uint8Array // 0 background, 255 foreground.
 
@@ -18,7 +18,6 @@ export interface DetachResult {
   healedBackgroundDataUrl: string
 }
 
-// @ts-nocheck\n/** -------- Image raster helpers -------- */
 
 function loadImageAsRaster(url: string): Promise<Raster> {
   return new Promise((resolve, reject) => {
@@ -41,7 +40,8 @@ function rasterToDataUrl(raster: Raster): string {
   const canvas = new OffscreenCanvas(raster.width, raster.height)
   const ctx = canvas.getContext('2d')
   if (!ctx) throw new Error('no 2d context')
-  // @ts-ignore\n    ctx.putImageData(
+  
+    ctx.putImageData(
     new ImageData(new Uint8ClampedArray(raster.data), raster.width, raster.height),
     0,
     0,
@@ -49,7 +49,6 @@ function rasterToDataUrl(raster: Raster): string {
   return (canvas as any).toDataURL ? (canvas as any).toDataURL('image/png') : ''
 }
 
-// @ts-nocheck\n/** -------- GrabCut mask generation (seed-based flood + color clustering) -------- */
 
 export function generateGrabCutMask(raster: Raster, points: Point2D[], _options?: Partial<DeconstructorOptions>): PixelMask {
   const { width, height, data } = raster
@@ -69,14 +68,11 @@ export function generateGrabCutMask(raster: Raster, points: Point2D[], _options?
     while (stack.length) {
       const i = stack.pop()!
       const x = i % width
-      const y = (i / width) | 0
       const neighbours = [-1, 1, -width, width, -width - 1, -width + 1, width - 1, width + 1]
       for (const d of neighbours) {
         const ni = i + d
         if (ni < 0 || ni >= width * height) continue
         if (visited[ni]) continue
-        const nx = ni % width
-        const ny = (ni / width) | 0
         if ((d === -1 && x === 0) || (d === 1 && x === width - 1)) continue
         const dist = Math.sqrt(
           Math.pow(data[i * 4] - data[ni * 4], 2) +
@@ -94,7 +90,6 @@ export function generateGrabCutMask(raster: Raster, points: Point2D[], _options?
   return mask
 }
 
-// @ts-nocheck\n/** -------- Element extraction -------- */
 
 export function extractElementImage(raster: Raster, mask: PixelMask): { dataUrl: string; width: number; height: number } {
   const { width, height } = raster
@@ -112,12 +107,13 @@ export function extractElementImage(raster: Raster, mask: PixelMask): { dataUrl:
     dst[i * 4 + 2] = src[i * 4 + 2]
     dst[i * 4 + 3] = mask[i] === 255 ? src[i * 4 + 3] : 0
   }
-  // @ts-ignore\n    ctx.putImageData(imgData, 0, 0)
+  
+    ctx.putImageData(imgData, 0, 0)
   const crop = new OffscreenCanvas(bounds.width, bounds.height)
   const cctx = crop.getContext('2d')
   if (!cctx) return { dataUrl: '', width: 0, height: 0 }
   cctx.drawImage(canvas, bounds.x, bounds.y, bounds.width, bounds.height, 0, 0, bounds.width, bounds.height)
-  return { dataUrl: crop.toDataURL ? crop.toDataURL('image/png') : '', width: bounds.width, height: bounds.height }
+  return { dataUrl: (crop as any).toDataURL ? (crop as any).toDataURL('image/png') : '', width: bounds.width, height: bounds.height }
 }
 
 function boundingBoxOfMask(mask: PixelMask, width: number, height: number): Rect2D | null {
@@ -135,9 +131,7 @@ function boundingBoxOfMask(mask: PixelMask, width: number, height: number): Rect
   return { x: minX, y: minY, width: maxX - minX + 1, height: maxY - minY + 1 }
 }
 
-// @ts-nocheck\n/** -------- Telea Fast Marching Inpainting -------- */
 
-// @ts-nocheck\n/** Telea Fast Marching Inpainting: propagate outward from known (un-holed) pixels. */
 export async function inpaintHole(raster: Raster, mask: PixelMask, _options?: Partial<DeconstructorOptions>): Promise<InpaintResult> {
   const { width, height } = raster
   const dist = new Float64Array(width * height)
@@ -208,16 +202,14 @@ export async function inpaintHole(raster: Raster, mask: PixelMask, _options?: Pa
   return { dataUrl: rasterToDataUrl(healed), width, height }
 }
 
-// @ts-nocheck\n/** -------- Patch-based texture synthesis (heals larger areas) -------- */
 
-export async function synthesizeTexture(raster: Raster, mask: PixelMask): Promise<string> {
+export async function synthesizeTexture(raster: Raster, _mask: PixelMask): Promise<string> {
   // Placeholder exemplar-based texture synthesis: keeps the original pixels intact
   // where there is no hole. A full implementation can be added later without
   // touching the initial editor bundle.
   return rasterToDataUrl(raster)
 }
 
-// @ts-nocheck\n/** -------- Public API -------- */
 
 export async function detachElement(
   imageUrl: string,
