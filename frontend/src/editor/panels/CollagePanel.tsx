@@ -33,6 +33,9 @@ const TABS: readonly { id: Tab; label: string; icon: typeof LayoutGrid }[] = [
 /** Generated catalogs and the occasion kits live in their own chunk, loaded with the studio. */
 const CollageSmart = lazy(() => import('./collage/CollageSmart').then((module) => ({ default: module.CollageSmart })))
 
+/** Smart Design Deconstructor — lazy-loaded so the initial editor bundle stays ≤460 kB gzip. */
+const DeconstructStudio = lazy(() => import('../collage/deconstructor/DeconstructStudioModal').then((module) => ({ default: module.default })))
+
 const FONTS: readonly { id: CollageFont; sample: string; family: string }[] = [
   { id: 'Cairo', sample: 'القاهرة', family: '"Cairo", sans-serif' },
   { id: 'Amiri', sample: 'أميري', family: '"Amiri", serif' },
@@ -93,6 +96,7 @@ export function CollagePanel(_props: PanelProps) {
   const [busy, setBusy] = useState(false)
   const [font, setFont] = useState<CollageFont>('Cairo')
   const [variant, setVariant] = useState<CollageTextVariant>('headline')
+  const [deconstructOpen, setDeconstructOpen] = useState(false)
 
   const picked = pickedId && groups.some((group) => group.id === pickedId) ? pickedId : null
   const activeId = selected?.id ?? picked ?? groups[0]?.id ?? null
@@ -210,6 +214,15 @@ export function CollagePanel(_props: PanelProps) {
           </button>
         ))}
       </div>
+      <button type="button" className={styles.deconstructBtn} onClick={() => setDeconstructOpen(true)} aria-label="تفكيك قالب ذكي">
+        <span>تفكيك قالب ذكي</span>
+      </button>
+
+      {deconstructOpen && (
+        <Suspense fallback={<div>Loading Smart Design Deconstructor…</div>}>
+          <DeconstructStudio open imageUrl={activeSlot?.src ?? ''} onBuild={(res) => console.log('Deconstructor result:', res)} onClose={() => setDeconstructOpen(false)} />
+        </Suspense>
+      )}
 
       <div className={styles.scroll}>
         {tab === 'layout' ? (
