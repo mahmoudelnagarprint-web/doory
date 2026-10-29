@@ -166,6 +166,144 @@ export function CollagePanel(_props: PanelProps) {
   }
 
   if (!active) {
+    // ── Empty page: show Deconstruct tab independently ──────────────────────
+    if (tab === 'deconstruct') {
+      return (
+        <div className={styles.panel} data-testid="collage-panel">
+          <div className={styles.scroll}>
+            <div className={styles.deconstructTab}>
+              {/* ── Upload dropzone ── */}
+              <div
+                className={styles.dropzone}
+                onClick={() => fileInputRef.current?.click()}
+                onDragOver={(e) => { e.preventDefault(); e.currentTarget.classList.add(styles.dropzoneDragOver) }}
+                onDragLeave={(e) => e.currentTarget.classList.remove(styles.dropzoneDragOver)}
+                onDrop={(e) => {
+                  e.preventDefault()
+                  e.currentTarget.classList.remove(styles.dropzoneDragOver)
+                  const file = e.dataTransfer.files[0]
+                  if (file) handleFile(file)
+                }}
+                role="button"
+                tabIndex={0}
+                aria-label={collageStrings.deconstructUpload}
+                onKeyDown={(e) => e.key === 'Enter' && fileInputRef.current?.click()}
+              >
+                <input
+                  ref={fileInputRef}
+                  type="file"
+                  accept="image/*"
+                  style={{ display: 'none' }}
+                  onChange={(e) => {
+                    const file = e.target.files?.[0]
+                    if (file) handleFile(file)
+                    e.target.value = ''
+                  }}
+                />
+                {uploadedImageUrl ? (
+                  <img src={uploadedImageUrl} alt="Template preview" className={styles.dropzonePreview} />
+                ) : (
+                  <>
+                    <Upload size={32} className={styles.dropzoneIcon} />
+                    <p className={styles.dropzoneLabel}>{collageStrings.deconstructUpload}</p>
+                    <p className={styles.dropzoneHint}>{collageStrings.deconstructUploadHint}</p>
+                  </>
+                )}
+              </div>
+
+              {/* ── Settings ── */}
+              <div className={styles.deconstructSettings}>
+                <span className={styles.sectionTitle}>{collageStrings.deconstructSettings}</span>
+                <Slider
+                  label={collageStrings.deconstructFrameTolerance}
+                  value={deconstructOptions.minFrameArea ?? 0.02}
+                  min={0.005}
+                  max={0.15}
+                  step={0.005}
+                  display={`${Math.round((deconstructOptions.minFrameArea ?? 0.02) * 1000)}‰`}
+                  onChange={(v) => setDeconstructOptions((o) => ({ ...o, minFrameArea: v }))}
+                />
+                <Slider
+                  label={collageStrings.deconstructOcclusionFeather}
+                  value={deconstructOptions.occlusionFeather ?? 2}
+                  min={0}
+                  max={10}
+                  step={0.5}
+                  display={`${deconstructOptions.occlusionFeather ?? 2} px`}
+                  onChange={(v) => setDeconstructOptions((o) => ({ ...o, occlusionFeather: v }))}
+                />
+                <Slider
+                  label={collageStrings.deconstructTextThreshold}
+                  value={deconstructOptions.paperLuminanceThreshold ?? 200}
+                  min={100}
+                  max={240}
+                  step={5}
+                  display={`${deconstructOptions.paperLuminanceThreshold ?? 200}`}
+                  onChange={(v) => setDeconstructOptions((o) => ({ ...o, paperLuminanceThreshold: v }))}
+                />
+                <div className={styles.toggleRow}>
+                  <span className={styles.label}>{collageStrings.deconstructAdvancedSeg}</span>
+                  <Switch
+                    checked={deconstructOptions.useAdvancedSegmentation ?? true}
+                    onChange={(v) => setDeconstructOptions((o) => ({ ...o, useAdvancedSegmentation: v }))}
+                  />
+                </div>
+                <div className={styles.toggleRow}>
+                  <span className={styles.label}>{collageStrings.deconstructTextDetect}</span>
+                  <Switch
+                    checked={deconstructOptions.useTextDetection ?? true}
+                    onChange={(v) => setDeconstructOptions((o) => ({ ...o, useTextDetection: v }))}
+                  />
+                </div>
+              </div>
+
+              {/* ── Start button ── */}
+              <button
+                type="button"
+                className={styles.primary}
+                disabled={!uploadedImageUrl}
+                onClick={() => {
+                  if (!uploadedImageUrl) return
+                  setDeconstructOpen(true)
+                }}
+              >
+                <Scissors size={14} />
+                {collageStrings.deconstructStart}
+              </button>
+
+              {/* ── Full-screen modal overlay ── */}
+              {deconstructOpen && uploadedImageUrl && (
+                <div className={styles.deconstructOverlay}>
+                  <div className={styles.deconstructModal}>
+                    <button
+                      type="button"
+                      className={styles.deconstructClose}
+                      onClick={() => setDeconstructOpen(false)}
+                      aria-label={collageStrings.deconstructClose}
+                    >
+                      ✕
+                    </button>
+                    <Suspense fallback={<div className={styles.deconstructLoading}>{collageStrings.deconstructLoading}</div>}>
+                      <DeconstructStudio
+                        imageUrl={uploadedImageUrl}
+                        options={deconstructOptions}
+                        onBuild={(res) => {
+                          console.log('Deconstructor result:', res)
+                          setDeconstructOpen(false)
+                        }}
+                        onClose={() => setDeconstructOpen(false)}
+                      />
+                    </Suspense>
+                  </div>
+                </div>
+              )}
+            </div>
+          </div>
+        </div>
+      )
+    }
+
+    // ── Normal empty-page intro ─────────────────────────────────────────────
     return (
       <div className={styles.panel} data-testid="collage-panel">
         <div className={styles.scroll}>

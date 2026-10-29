@@ -14,7 +14,7 @@
  * responsively. Fixed pixel dimensions are used as the logical canvas resolution but the
  * CSS makes the rendered element scale to fit its container.
  */
-import { useState, useCallback } from 'react'
+import { useState, useCallback, useRef, useLayoutEffect } from 'react'
 import type { DeconstructorOptions, DeconstructionResult, DetachedElement, DetectedTextCard, RotatedFrame } from './types'
 import { detectSmartLayeredFrames } from './frameExtractor'
 import './DeconstructStudio.css'
@@ -38,6 +38,59 @@ const DEFAULTS: Required<DeconstructorOptions> = {
   useTextDetection: true,
 }
 
+/** Scale + center image within logical canvas, preserving aspect ratio. */
+function fitImageOnCanvas(
+  ctx: CanvasRenderingContext2D,
+  img: HTMLImageElement,
+  canvasW: number,
+  canvasH: number,
+) {
+  const scale = Math.min(canvasW / img.width, canvasH / img.height)
+  const w = img.width * scale
+  const h = img.height * scale
+  const x = (canvasW - w) / 2
+  const y = (canvasH - h) / 2
+  ctx.clearRect(0, 0, canvasW, canvasH)
+  ctx.fillStyle = '#1a1a2e'
+  ctx.fillRect(0, 0, canvasW, canvasH)
+  ctx.drawImage(img, x, y, w, h)
+  return { x, y, scale }
+}
+
+/** Draw detection overlay on top of the canvas (frame rectangles + labels). */
+function drawFrameOverlay(
+  ctx: CanvasRenderingContext2D,
+  frames: RotatedFrame[],
+  offsetX: number,
+  offsetY: number,
+  scale: number,
+) {
+  for (const frame of frames) {
+    const cx = offsetX + frame.cx * scale
+    const cy = offsetY + frame.cy * scale
+    const fw = frame.width * scale
+    const fh = frame.height * scale
+
+    ctx.save()
+    ctx.translate(cx, cy)
+    ctx.rotate((frame.angle * Math.PI) / 180)
+    ctx.strokeStyle = '#f59e0b'
+    ctx.lineWidth = 2
+    ctx.shadowColor = 'rgba(0,0,0,0.5)'
+    ctx.shadowBlur = 4
+    ctx.strokeRect(-fw / 2, -fh / 2, fw, fh)
+    ctx.fillStyle = 'rgba(245,158,11,0.15)'
+    ctx.fillRect(-fw / 2, -fh / 2, fw, fh)
+    ctx.restore()
+
+    // Corner dot
+    ctx.beginPath()
+    ctx.arc(cx, cy, 4, 0, Math.PI * 2)
+    ctx.fillStyle = '#f59e0b'
+    ctx.fill()
+  }
+}
+
 export default function DeconstructStudioModal({
   imageUrl,
   options,
@@ -47,12 +100,46 @@ export default function DeconstructStudioModal({
   onClose,
 }: DeconstructStudioModalProps) {
   const opts = { ...DEFAULTS, ...options }
+  const canvasRef = useRef<HTMLCanvasElement>(null)
   const [isLoading, setIsLoading] = useState(false)
   const [frames, setFrames] = useState<RotatedFrame[]>([])
   const [elements, _setElements] = useState<DetachedElement[]>([])
   const [textCards, _setTextCards] = useState<DetectedTextCard[]>([])
   const [mode, setMode] = useState<'auto-detect' | 'detach' | 'erase-text' | 'build'>('auto-detect')
   const [result, setResult] = useState<DeconstructionResult | null>(null)
+
+  // ── Draw uploaded image onto canvas whenever imageUrl changes ──────────────
+  useLayoutEffect(() => {
+    if (!imageUrl) return
+    const canvas = canvasRef.current
+    if (!canvas) return
+    const ctx = canvas.getContext('2d')
+    if (!ctx) return
+    const img = new Image()
+    img.onload = () => {
+      const { x, y, scale } = fitImageOnCanvas(ctx, img, width, height)
+      // Draw detection overlays on top of the image
+      if (frames.length > 0) {
+        drawFrameOverlay(ctx, frames, x, y, scale)
+      }
+    }
+    img.src = imageUrl
+  }, [imageUrl, width, height])
+
+  // ── Re-draw frame overlay when frames are detected ─────────────────────────
+  useLayoutEffect(() => {
+    if (!imageUrl || frames.length === 0) return
+    const canvas = canvasRef.current
+    if (!canvas) return
+    const ctx = canvas.getContext('2d')
+    if (!ctx) return
+    const img = new Image()
+    img.onload = () => {
+      const { x, y, scale } = fitImageOnCanvas(ctx, img, width, height)
+      drawFrameOverlay(ctx, frames, x, y, scale)
+    }
+    img.src = imageUrl
+  }, [frames, imageUrl, width, height])
 
   const runAutoDetect = useCallback(async () => {
     if (!imageUrl) return
@@ -128,6 +215,7 @@ export default function DeconstructStudioModal({
         <div className="deconstruct-canvas-area">
           {/* Logical canvas dimensions are width×height; CSS scales it to fill the container. */}
           <canvas
+            ref={canvasRef}
             className="deconstruct-canvas"
             width={width}
             height={height}
