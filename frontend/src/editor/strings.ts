@@ -1324,6 +1324,7 @@ export const t = {
     avif: 'The smallest files, made on the server. Some apps can’t open it yet.',
     pdf: 'One document, at the page’s physical size.',
     svg: 'Vector graphics, one file per page.',
+    psd: 'Editable Photoshop layers, text & clipping masks.',
     pdfServer: 'Vector PDF, made on the server.',
     pdfServerLabel: 'Print-quality PDF',
     mp4: 'Plays almost anywhere.',

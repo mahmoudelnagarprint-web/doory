@@ -207,6 +207,24 @@ export function registerBuiltinExportFormats(): void {
     run: svgFiles,
   })
   registerExportFormat({
+    id: 'psd',
+    label: 'PSD — Photoshop Layers (.psd)',
+    description: t.exportFormats.psd ?? 'Editable layers, text & clipping masks',
+    extension: 'psd',
+    mime: 'image/vnd.adobe.photoshop',
+    order: 25,
+    controls: { scale: true },
+    run: async (ctx) => {
+      const { exportToPsd } = await import('./psd/exportPsd')
+      const scale = ctx.options.size ? 1 : ctx.options.scale ?? 1
+      const dpi = 300
+      const pages = ctx.pages
+      const files = await exportToPsd(ctx.engine, { scale, dpi, pages })
+      // Re-name files to match export naming convention
+      return files
+    },
+  })
+  registerExportFormat({
     id: 'pdf-server',
     label: t.exportFormats.pdfServerLabel,
     description: t.exportFormats.pdfServer,
