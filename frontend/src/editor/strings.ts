@@ -42,7 +42,7 @@ export const t = {
     moreDownloadOptions: 'All formats and options…',
     videoDownload: 'Video',
     videoDownloadHint: 'MP4 · GIF',
-    formatHint: { png: 'Transparent', jpg: 'Photos', webp: 'Smallest web', pdf: 'Print-ready', svg: 'Vector' },
+    formatHint: { png: 'Transparent', jpg: 'Photos', webp: 'Smallest web', pdf: 'Print-ready', svg: 'Vector', psd: 'Editable Layers' },
     suggestedFor: (preset: string) => `Suggested for ${preset}`,
     lastUsed: 'Last used',
     copyImage: 'Copy as image',

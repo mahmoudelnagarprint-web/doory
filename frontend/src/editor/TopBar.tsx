@@ -175,13 +175,15 @@ function ShareMenu({ onPresent }: { onPresent: () => void }) {
 
   const presentNotes = commands.get('file.presentNotes')
   const usable = (id: string): boolean => formats.some((f) => f.id === id && (!f.available || f.available(editor)))
+  // The tiles show a short file type; the format's own label is the longer description used in the dialog.
+  const tileLabels: Record<string, string> = { psd: 'PSD' }
   const preset = open ? designPreset(editor) : null
   const suggested = preset ? suggestionFor(editor, preset) : null
   const last = open ? loadLastExport(editor) : null
   const tile = (id: keyof typeof t.topbar.formatHint): MenuItem[] => {
     if (!usable(id)) return []
     const options = id === 'png' ? { ...DEFAULT_EXPORT_OPTIONS, transparent: true } : DEFAULT_EXPORT_OPTIONS
-    return [{ id, label: exportFormats.get(id)?.label ?? id, hint: t.topbar.formatHint[id], tile: true, onSelect: () => void quick({ formatId: id, options }) }]
+    return [{ id, label: tileLabels[id] ?? exportFormats.get(id)?.label ?? id, hint: t.topbar.formatHint[id], tile: true, onSelect: () => void quick({ formatId: id, options }) }]
   }
   const items: MenuItem[] = [
     ...(canShare ? [{ id: 'share-people', label: t.topbar.shareWithPeople, hint: t.topbar.shareWithPeopleHint, icon: <Users size={16} aria-hidden="true" />, onSelect: share }, { id: 's-share', separator: true }] : []),
@@ -203,6 +205,7 @@ function ShareMenu({ onPresent }: { onPresent: () => void }) {
     ...tile('webp'),
     ...tile('pdf'),
     ...tile('svg'),
+    ...tile('psd'),
     ...(formats.some((f) => f.controls.video) ? [{ id: 'video', label: t.topbar.videoDownload, hint: t.topbar.videoDownloadHint, tile: true, onSelect: () => editor.openDialog('download', { format: 'mp4' }) }] : []),
     ...(last && usable(last.formatId) ? [{ id: 'last', label: t.topbar.lastUsed, hint: describeChoice(last), icon: <History size={16} aria-hidden="true" />, onSelect: () => void quick(last) }] : []),
     { id: 'more', label: t.topbar.moreDownloadOptions, icon: <SlidersHorizontal size={16} aria-hidden="true" />, shortcut: commands.get('file.download')?.shortcut, onSelect: () => editor.openDialog('download') },

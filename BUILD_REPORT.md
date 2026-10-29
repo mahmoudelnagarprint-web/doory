@@ -12,7 +12,7 @@
 | اختبارات الـ Deconstructor | 7 / 7 ناجحة (`vitest`) | ✅ |
 | ESLint (deconstructor + CollagePanel) | 0 أخطاء | ✅ |
 | TypeScript (ملفات الـ Deconstructor + CollagePanel) | 0 أخطاء | ✅ |
-| ميزانية الحزمة — مسار المحرر | 457.6 kB gzip (الحد 460) | ✅ |
+| ميزانية الحزمة — مسار المحرر | 457.9 kB gzip (الحد 460) | ✅ |
 | ميزانية الحزمة — حزمة المحرر | 134.4 kB gzip (الحد 160) | ✅ |
 | TypeScript للمشروع كاملًا | 20 خطأ متبقٍ — كلها في مسار PSD بالتوازي | ⚠️ |
 
@@ -43,13 +43,23 @@
 - بيئة Node/Vitest لا تملك `Image`/`OffscreenCanvas`، فأُضيفت polyfills خفيفة داخل ملف الاختبار (`MockOffscreenCanvas`, `MockImage`, `MockImageData`) بدل إدخال اعتماديات جديدة.
 - فحص الميزانية: `npm run bundle:check` ← `Bundle budgets: ok`.
 
-### 2.3 ضبط الجودة — commit الجودة + التقرير (هذه الدفعة)
+### 2.3 ضبط الجودة — `commit b8d49dd`
 
 - إزالة **كل** `@ts-nocheck` و `@ts-ignore` من `deconstructor/` و `CollagePanel.tsx`.
 - إصلاح أخطاء وقت التشغيل الحقيقية في `inpaintHole` (`nx`, `ny`, `y` كانت غير معرّفة داخل حلقة الجوار).
 - تحويل استدعاءات `toDataURL` غير الموجودة في أنواع `OffscreenCanvas` إلى `(canvas as any)` بدل كتم الفحص.
 - تنظيف استيرادات ودوال غير مستخدمة (`_MaskShape`, `_rotatePoint`, `_setElements`, `_setTextCards`, `_mask`).
 - إزالة خاصية `open` غير الموجودة في `DeconstructStudioModalProps` من استدعاء المودال.
+
+### 2.4 إظهار PSD في شبكة التنزيل السريع — هذه الدفعة
+
+كان PSD مسجّلًا في محرك التصدير لكنه غير موجود في شبكة الاختصارات داخل قائمة **Share / Download**، لأنه غير مضمّن في قائمة البلاطات الستة (`png`, `jpg`, `webp`, `pdf`, `svg`, `video`).
+
+- `frontend/src/editor/TopBar.tsx`: أُضيف `...tile('psd')` بين `svg` و`video` (الشبكة 3 أعمدة ← صف جديد).
+- عنوان البلاطة ثابت قصير `PSD` عبر `tileLabels` (بدل العنوان الطويل `PSD - Photoshop Layers (.psd)` الخاص بنافذة الخيارات)، والعنوان الفرعي `Editable Layers`.
+- يظهر الزر تلقائيًا فقط عندما يكون الفورمات مسجّلًا ومتاحًا (`usable('psd')`)، وبنفس تنسيق بقية البلاطات.
+- `frontend/src/editor/strings.ts`: إضافة `psd: 'Editable Layers'` إلى `t.topbar.formatHint`.
+- `frontend/src/editor/chrome/chrome.test.tsx`: اختبار يتحقق من وجود بلاطة `PSD` في الشبكة، ومن أن الضغط عليها يشغّل التصدير بـ `formatId: 'psd'`.
 
 ---
 
@@ -71,7 +81,7 @@ Test Files  1 passed (1)
 | `/login` | 39 | 145.6 kB | 436.0 kB | 14.1 kB | — |
 | `/templates` | 49 | 155.0 kB | 461.7 kB | 15.1 kB | — |
 | `/dashboard` | 72 | 167.3 kB | 488.4 kB | 15.3 kB | — |
-| `/local/:id` (المحرر) | 95 | **457.6 kB** | 1396.0 kB | 31.7 kB | ≤ 460 kB |
+| `/local/:id` (المحرر) | 95 | **457.9 kB** | 1396.9 kB | 31.7 kB | ≤ 460 kB |
 
 ```
 Editor chunk: 440.4 kB minified, 134.4 kB gzip (budget 160.0 kB)
@@ -103,6 +113,8 @@ exit=0   (0 errors)
 3. **قيود أنواع `OffscreenCanvas`:** `toDataURL` غير موجود في تعريفات TypeScript القياسية؛ عولج بتحويل `as any` موضعي، ولا يؤثر على وقت التشغيل في المتصفح (المسار يعمل عبر `HTMLCanvasElement`).
 4. **بيئة الاختبار:** الاختبارات تستخدم polyfills داخلية للـ Canvas؛ لا تغطي الأداء الفعلي على صور كبيرة، لذا يُنصح باختبار يدوي بصورة قالب 2000px+ قبل الإطلاق.
 5. **الجودة البصرية:** الـ Inpainting رياضي (Telea) وقد يُظهر ضبابية على الخلفيات شديدة التفاصيل؛ الخيار البديل `synthesizeTexture` يغطي الثقوب الكبيرة.
+6. **`bundle:check` لا يبني:** السكربت يقرأ `dist/` الموجودة فقط، وكانت النتائج السابقة مبنية على `dist` قديم لا يحتوي PSD. القياس الصحيح بعد `npx vite build` أعطى 457.9 kB gzip، وظهر الـ chunk الكسول `exportPsd-*.js` في المخرجات. أي قياس لاحق يجب أن يسبقه build.
+7. **`npm run build` يفشل حاليًا** لأن `tsc -b` يسقط على أخطاء مسار PSD الـ20؛ البناء الفعلي تم عبر `npx vite build` (esbuild لا يوقف البناء على أخطاء الأنواع).
 
 ---
 
