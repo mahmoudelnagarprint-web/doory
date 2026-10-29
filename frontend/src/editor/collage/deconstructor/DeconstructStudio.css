@@ -132,3 +132,152 @@
   color: var(--ed-text-dim);
   font: 12px / 1.6 var(--font-sans);
 }
+
+/* ── Header row (title + close button) ────────────────────────────────────── */
+.deconstruct-studio .deconstruct-header-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  padding-bottom: 8px;
+  border-bottom: 1px solid var(--ed-border);
+}
+
+/* ── Close button ─────────────────────────────────────────────────────────── */
+.deconstruct-studio .deconstruct-close-btn {
+  width: 32px;
+  height: 32px;
+  flex: none;
+  border: none;
+  border-radius: 8px;
+  background: var(--ed-surface-2);
+  color: var(--ed-text);
+  font-size: 16px;
+  cursor: pointer;
+  transition: background 0.18s;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+.deconstruct-studio .deconstruct-close-btn:hover {
+  background: var(--ed-surface-hover);
+}
+
+/* ── Progress bar ─────────────────────────────────────────────────────────── */
+.deconstruct-studio .deconstruct-progress-wrap {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  margin-top: 8px;
+}
+.deconstruct-studio .deconstruct-progress-bar {
+  height: 6px;
+  border-radius: 999px;
+  background: var(--ed-surface-2);
+  overflow: hidden;
+}
+.deconstruct-studio .deconstruct-progress-fill {
+  height: 100%;
+  background: var(--ed-accent);
+  border-radius: 999px;
+  transition: width 0.4s ease;
+}
+.deconstruct-studio .deconstruct-progress-fill.error {
+  background: var(--ed-danger);
+}
+.deconstruct-studio .deconstruct-progress-msg {
+  margin: 0;
+  color: var(--ed-text-dim);
+  font: 500 11px / 1 var(--font-sans);
+}
+
+/* ── Waiting state ────────────────────────────────────────────────────────── */
+.deconstruct-studio .deconstruct-waiting {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 12px;
+}
+.deconstruct-studio .deconstruct-spinner {
+  width: 36px;
+  height: 36px;
+  border: 3px solid var(--ed-border);
+  border-top-color: var(--ed-accent);
+  border-radius: 50%;
+  animation: dsh-spin 0.8s linear infinite;
+}
+@keyframes dsh-spin {
+  to { transform: rotate(360deg); }
+}
+
+/* ── Result / error boxes ──────────────────────────────────────────────────── */
+.deconstruct-studio .deconstruct-result-box {
+  padding: 12px;
+  border: 1px solid var(--ed-border);
+  border-radius: 10px;
+  background: var(--ed-surface-2);
+}
+.deconstruct-studio .deconstruct-result-box h3 {
+  margin: 0 0 8px;
+  font: 700 13px / 1.2 var(--font-sans);
+  color: var(--ed-text);
+}
+.deconstruct-studio .deconstruct-result-box ul {
+  margin: 0;
+  padding-left: 16px;
+  color: var(--ed-text-dim);
+  font: 12px / 1.7 var(--font-sans);
+}
+.deconstruct-studio .deconstruct-error {
+  padding: 10px;
+  border: 1px solid var(--ed-danger);
+  border-radius: 8px;
+  background: color-mix(in srgb, var(--ed-danger) 12%, transparent);
+  color: var(--ed-danger);
+  font: 12px / 1.5 var(--font-sans);
+}
+
+/* ── Magic button ─────────────────────────────────────────────────────────── */
+.deconstruct-studio .deconstruct-btn-magic {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  width: 100%;
+  height: 44px;
+  border: none;
+  border-radius: 10px;
+  background: var(--ed-accent);
+  color: #fff;
+  font: 700 14px / 1 var(--font-sans);
+  cursor: pointer;
+  transition: background 0.18s, transform 0.1s;
+}
+.deconstruct-studio .deconstruct-btn-magic:hover:not(:disabled) {
+  background: var(--ed-accent-hover);
+  transform: translateY(-1px);
+}
+.deconstruct-studio .deconstruct-btn-magic:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+/* ── Secondary button ──────────────────────────────────────────────────────── */
+.deconstruct-studio .deconstruct-btn-secondary {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 100%;
+  height: 36px;
+  border: 1px solid var(--ed-border);
+  border-radius: 8px;
+  background: transparent;
+  color: var(--ed-text-dim);
+  font: 600 13px / 1 var(--font-sans);
+  cursor: pointer;
+  transition: background 0.18s, color 0.18s;
+}
+.deconstruct-studio .deconstruct-btn-secondary:hover {
+  background: var(--ed-surface-hover);
+  color: var(--ed-text);
+}

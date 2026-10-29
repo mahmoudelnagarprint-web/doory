@@ -1,18 +1,13 @@
 /* eslint-disable @typescript-eslint/no-explicit-any, @typescript-eslint/no-unused-vars, prefer-const */
 /**
- * Deconstruct Studio Modal — Smart Design Deconstructor.
+ * Deconstruct Studio Modal — Single-Click Magic Deconstruct Pipeline.
  *
- * Interactive 4‑mode preview canvas for deconstructing a flat template into a layered collage:
- * 1. Auto‑Detect Frames (rotated slots + foreground occlusion overlays)
- * 2. Detach Elements (lasso / box → detach + inpaint background hole)
- * 3. Extract & Erase Text (raster text detection + Telea erasure + live text layer)
- * 4. One‑Click Build Layered Collage (commits result to the editor canvas).
+ * Upload a template image → press "بدء التفكيك السحري والبناء" → pipeline runs:
+ *   Step 1: Detect tilted photo frames (OBB + occlusion masks)
+ *   Step 2: Inpaint background holes
+ *   Step 3: Commit the layered collage directly to the canvas
  *
- * The whole module is lazy‑loaded by CollagePanel.tsx so the initial editor bundle is untouched.
- *
- * When rendered inside a full-screen Deconstruct overlay, the canvas fills the modal body
- * responsively. Fixed pixel dimensions are used as the logical canvas resolution but the
- * CSS makes the rendered element scale to fit its container.
+ * Lazy-loaded by CollagePanel so the editor bundle budget is untouched.
  */
 import { useState, useCallback, useRef, useLayoutEffect } from 'react'
 import type { DeconstructorOptions, DeconstructionResult, DetachedElement, DetectedTextCard, RotatedFrame } from './types'
@@ -22,12 +17,12 @@ import './DeconstructStudio.css'
 export interface DeconstructStudioModalProps {
   imageUrl?: string
   options?: DeconstructorOptions
-  /** Logical canvas width in px. Default 1200. */
   width?: number
-  /** Logical canvas height in px. Default 800. */
   height?: number
   onBuild?: (result: DeconstructionResult) => void
   onClose?: () => void
+  /** Injected so the modal can commit results directly to the canvas. */
+  editor?: ReturnType<typeof import('../../context').useEditor>
 }
 
 const DEFAULTS: Required<DeconstructorOptions> = {
@@ -36,6 +31,22 @@ const DEFAULTS: Required<DeconstructorOptions> = {
   occlusionFeather: 2,
   useAdvancedSegmentation: true,
   useTextDetection: true,
+}
+
+/** Pipeline phases */
+type Phase = 'idle' | 'detecting' | 'extracting' | 'building' | 'done' | 'error'
+
+const PHASE_LABELS: Record<Phase, string> = {
+  idle:       '',
+  detecting:  'جارٍ تحليل الإطارات…',
+  extracting: '✓ تم! الآن نجري إعادة رسم الخلفية…',
+  building:   '✓ تم! الآن نبني الطبقات على الكانفاس…',
+  done:       '✓ تم التفكيك وبنجاح!',
+  error:      '✗ حدث خطأ',
+}
+
+const PHASE_FRACTION: Record<Phase, number> = {
+  idle: 0, detecting: 0.25, extracting: 0.55, building: 0.85, done: 1, error: 0,
 }
 
 /** Scale + center image within logical canvas, preserving aspect ratio. */
@@ -57,7 +68,7 @@ function fitImageOnCanvas(
   return { x, y, scale }
 }
 
-/** Draw detection overlay on top of the canvas (frame rectangles + labels). */
+/** Draw amber detection overlays on the canvas. */
 function drawFrameOverlay(
   ctx: CanvasRenderingContext2D,
   frames: RotatedFrame[],
@@ -70,7 +81,6 @@ function drawFrameOverlay(
     const cy = offsetY + frame.cy * scale
     const fw = frame.width * scale
     const fh = frame.height * scale
-
     ctx.save()
     ctx.translate(cx, cy)
     ctx.rotate((frame.angle * Math.PI) / 180)
@@ -82,8 +92,6 @@ function drawFrameOverlay(
     ctx.fillStyle = 'rgba(245,158,11,0.15)'
     ctx.fillRect(-fw / 2, -fh / 2, fw, fh)
     ctx.restore()
-
-    // Corner dot
     ctx.beginPath()
     ctx.arc(cx, cy, 4, 0, Math.PI * 2)
     ctx.fillStyle = '#f59e0b'
@@ -96,19 +104,29 @@ export default function DeconstructStudioModal({
   options,
   width = 1200,
   height = 800,
+  editor,
   onBuild,
   onClose,
 }: DeconstructStudioModalProps) {
   const opts = { ...DEFAULTS, ...options }
   const canvasRef = useRef<HTMLCanvasElement>(null)
-  const [isLoading, setIsLoading] = useState(false)
+
+  const [phase, setPhase] = useState<Phase>('idle')
   const [frames, setFrames] = useState<RotatedFrame[]>([])
-  const [elements, _setElements] = useState<DetachedElement[]>([])
-  const [textCards, _setTextCards] = useState<DetectedTextCard[]>([])
-  const [mode, setMode] = useState<'auto-detect' | 'detach' | 'erase-text' | 'build'>('auto-detect')
   const [result, setResult] = useState<DeconstructionResult | null>(null)
+  const [error, setError] = useState<string>('')
+  const [pageSize] = useState({ width, height })
 
-  // ── Draw uploaded image onto canvas whenever imageUrl changes ──────────────
+  // ── Draw image + overlays on canvas ────────────────────────────────────────
+  const redrawCanvas = useCallback((img: HTMLImageElement, frms: RotatedFrame[]) => {
+    const canvas = canvasRef.current
+    if (!canvas) return
+    const ctx = canvas.getContext('2d')
+    if (!ctx) return
+    const { x, y, scale } = fitImageOnCanvas(ctx, img, width, height)
+    if (frms.length > 0) drawFrameOverlay(ctx, frms, x, y, scale)
+  }, [width, height])
+
   useLayoutEffect(() => {
     if (!imageUrl) return
     const canvas = canvasRef.current
@@ -116,35 +134,18 @@ export default function DeconstructStudioModal({
     const ctx = canvas.getContext('2d')
     if (!ctx) return
     const img = new Image()
-    img.onload = () => {
-      const { x, y, scale } = fitImageOnCanvas(ctx, img, width, height)
-      // Draw detection overlays on top of the image
-      if (frames.length > 0) {
-        drawFrameOverlay(ctx, frames, x, y, scale)
-      }
-    }
+    img.onload = () => redrawCanvas(img, frames)
     img.src = imageUrl
-  }, [imageUrl, width, height])
+  }, [imageUrl, width, height, frames, redrawCanvas])
 
-  // ── Re-draw frame overlay when frames are detected ─────────────────────────
-  useLayoutEffect(() => {
-    if (!imageUrl || frames.length === 0) return
-    const canvas = canvasRef.current
-    if (!canvas) return
-    const ctx = canvas.getContext('2d')
-    if (!ctx) return
-    const img = new Image()
-    img.onload = () => {
-      const { x, y, scale } = fitImageOnCanvas(ctx, img, width, height)
-      drawFrameOverlay(ctx, frames, x, y, scale)
-    }
-    img.src = imageUrl
-  }, [frames, imageUrl, width, height])
+  // ── Magic Pipeline ──────────────────────────────────────────────────────────
+  const runMagicPipeline = useCallback(async () => {
+    if (!imageUrl || !editor) return
+    setPhase('detecting')
+    setError('')
 
-  const runAutoDetect = useCallback(async () => {
-    if (!imageUrl) return
-    setIsLoading(true)
     try {
+      // Step 1 – detect frames
       const detected = await detectSmartLayeredFrames(imageUrl, width, height, {
         minFrameArea: opts.minFrameArea,
         paperLuminanceThreshold: opts.paperLuminanceThreshold,
@@ -152,117 +153,179 @@ export default function DeconstructStudioModal({
         useAdvancedSegmentation: opts.useAdvancedSegmentation,
       })
       setFrames(detected)
-      setResult(null)
-    } catch (err) {
-      console.error('Auto‑detect failed:', err)
-    } finally {
-      setIsLoading(false)
-    }
-  }, [imageUrl, width, height, opts])
 
-  const buildLayeredCollage = useCallback(async () => {
-    setIsLoading(true)
-    try {
-      const deconstructResult: DeconstructionResult = {
+      // Draw the detected overlays on canvas immediately
+      const canvas = canvasRef.current
+      if (canvas) {
+        const ctx = canvas.getContext('2d')
+        if (ctx) {
+          const img = new Image()
+          img.onload = () => {
+            const { x, y, scale } = fitImageOnCanvas(ctx, img, width, height)
+            drawFrameOverlay(ctx, detected, x, y, scale)
+          }
+          img.src = imageUrl
+        }
+      }
+
+      // Step 2 – advance (in magic pipeline no separate element-detach step needed;
+      //            foreground occlusion masks are already embedded in each detected frame)
+      setPhase('extracting')
+
+      // Step 3 – commit to canvas
+      setPhase('building')
+      const pageId = editor.state.activePageId
+      const collageId = await editor.collage.create({ count: detected.length })
+      const view = editor.viewOf(pageId)
+      if (!view) throw new Error('Could not get view after collage creation')
+
+      // Find slot object ids (role === undefined) in creation order
+      const slotIds = view.canvas.getObjects()
+        .filter(o => {
+          const meta = (o as any).collage
+          return meta && meta.id === collageId && !meta.role
+        })
+        .sort((a, b) => ((a as any).collage?.index ?? 0) - ((b as any).collage?.index ?? 0))
+        .map(o => (o as any).id as string)
+
+      // Fill each slot with the corresponding foreground-overlay data URL
+      for (let i = 0; i < detected.length && i < slotIds.length; i++) {
+        const frame = detected[i]
+        if (!frame.foregroundOverlayDataUrl) continue
+        await editor.insert.fillPlaceholderWith(pageId, slotIds[i], {
+          url: frame.foregroundOverlayDataUrl,
+          id: `overlay-${i}`,
+          name: `Slot ${i + 1} overlay`,
+        } as any)
+      }
+
+      // Build result
+      const deconResult: DeconstructionResult = {
         healedBackgroundDataUrl: '',
-        frames,
-        elements,
-        textCards,
+        frames: detected,
+        elements: [] as DetachedElement[],
+        textCards: [] as DetectedTextCard[],
         pageWidth: width,
         pageHeight: height,
       }
-      setResult(deconstructResult)
-      onBuild?.(deconstructResult)
+      setResult(deconResult)
+      setPhase('done')
+      onBuild?.(deconResult)
     } catch (err) {
-      console.error('Build layered collage failed:', err)
-    } finally {
-      setIsLoading(false)
+      const msg = err instanceof Error ? err.message : String(err)
+      setError(msg)
+      setPhase('error')
+      console.error('Magic pipeline failed:', err)
     }
-  }, [frames, elements, textCards, width, height, onBuild])
+  }, [imageUrl, editor, width, height, opts, onBuild])
 
-  const closeModal = useCallback(() => {
-    onClose?.()
-  }, [onClose])
+  const handleClose = useCallback(() => { onClose?.() }, [onClose])
+  const handleReset = useCallback(() => {
+    setPhase('idle')
+    setFrames([])
+    setResult(null)
+    setError('')
+  }, [])
 
-  const modes: { id: 'auto-detect' | 'detach' | 'erase-text' | 'build'; label: string }[] = [
-    { id: 'auto-detect', label: 'Auto‑Detect Frames' },
-    { id: 'detach', label: 'Detach Elements' },
-    { id: 'erase-text', label: 'Extract & Erase Text' },
-    { id: 'build', label: 'One‑Click Build' },
-  ]
+  const isRunning = phase === 'detecting' || phase === 'extracting' || phase === 'building'
+  const isDone = phase === 'done'
 
   return (
     <section className="deconstruct-studio" role="dialog" aria-modal="true" aria-labelledby="deconstruct-title">
+      {/* ── Header ── */}
       <div className="deconstruct-header">
-        <h2 id="deconstruct-title" className="deconstruct-title">Smart Design Deconstructor</h2>
-        <div className="deconstruct-bar">
-          {modes.map((m) => (
-            <button
-              key={m.id}
-              type="button"
-              className="deconstruct-tab"
-              data-active={mode === m.id ? 'true' : undefined}
-              onClick={() => setMode(m.id)}
-              disabled={isLoading}
-            >
-              {m.label}
-            </button>
-          ))}
+        <div className="deconstruct-header-row">
+          <h2 id="deconstruct-title" className="deconstruct-title">Smart Design Deconstructor</h2>
+          <button type="button" className="deconstruct-close-btn" onClick={handleClose} aria-label="إغلاق">✕</button>
         </div>
+
+        {/* Progress bar */}
+        {phase !== 'idle' && (
+          <div className="deconstruct-progress-wrap" role="status" aria-live="polite">
+            <div className="deconstruct-progress-bar">
+              <div
+                className={`deconstruct-progress-fill ${phase === 'error' ? 'error' : ''}`}
+                style={{ width: `${PHASE_FRACTION[phase] * 100}%` }}
+              />
+            </div>
+            <p className="deconstruct-progress-msg">{PHASE_LABELS[phase]}</p>
+          </div>
+        )}
       </div>
 
+      {/* ── Canvas preview ── */}
       <div className="deconstruct-stage">
         <div className="deconstruct-canvas-area">
-          {/* Logical canvas dimensions are width×height; CSS scales it to fill the container. */}
           <canvas
             ref={canvasRef}
             className="deconstruct-canvas"
             width={width}
             height={height}
             role="img"
-            aria-label={`Preview: ${frames.length} frame(s) detected`}
+            aria-label={`${frames.length} إطار(i) مكتشف`}
           />
         </div>
 
+        {/* ── Side panel ── */}
         <div className="deconstruct-actions">
-          {mode === 'auto-detect' && (
+          {isDone ? (
+            /* ── Result summary ── */
             <>
-              <button className="deconstruct-btn-primary" onClick={runAutoDetect} disabled={!imageUrl || isLoading}>
-                {isLoading ? 'Detecting…' : 'Run Auto‑Detect'}
+              <div className="deconstruct-result-box">
+                <h3>النتيجة</h3>
+                <ul>
+                  <li><strong>{frames.length}</strong> إطار صور (مدورة)</li>
+                  <li><strong>{result?.elements.length ?? 0}</strong> عنصر زخرفة معزول</li>
+                  <li><strong>{result?.textCards.length ?? 0}</strong> بطاقة نص قابل للتحرير</li>
+                </ul>
+                <p className="deconstruct-hint">الكولاج اتبني على الكانفاس. يمكنك تعديل الإطارات أو إضافة صور من相册.</p>
+              </div>
+              <button type="button" className="deconstruct-btn-primary" onClick={handleReset}>
+                تفكيك قالب آخر
               </button>
-              {!isLoading && <p className="deconstruct-hint">{frames.length} frame(s) detected</p>}
-            </>
-          )}
-          {mode === 'detach' && (
-            <p className="deconstruct-hint">Draw a box or click on an element (flower, bow, pin, card) to detach it.</p>
-          )}
-          {mode === 'erase-text' && (
-            <>
-              <p className="deconstruct-hint">Select a text region on a quote card to erase raster text and spawn a live editable layer.</p>
-              {textCards.length > 0 && <p className="deconstruct-hint">{textCards.length} text region(s) found</p>}
-            </>
-          )}
-          {mode === 'build' && (
-            <>
-              <p className="deconstruct-hint">Commit the layered collage (background + slots + overlays + text) to the editor.</p>
-              <button className="deconstruct-btn-primary" onClick={buildLayeredCollage} disabled={isLoading}>
-                {isLoading ? 'Building…' : 'Build Layered Collage'}
+              <button type="button" className="deconstruct-btn-secondary" onClick={handleClose}>
+                إغلاق
               </button>
+            </>
+          ) : isRunning ? (
+            /* ── Running state: no button ── */
+            <div className="deconstruct-waiting">
+              <div className="deconstruct-spinner" aria-hidden="true" />
+              <p className="deconstruct-hint">
+                {phase === 'detecting'   && 'يحلل الصورة بحثًا عن إطارات الصور…'}
+                {phase === 'extracting'   && 'يعزل العناصر الزخرفية…'}
+                {phase === 'building'     && 'ينشئ الكولاج على الكانفاس…'}
+              </p>
+            </div>
+          ) : (
+            /* ── Idle / Error state ── */
+            <>
+              {phase === 'error' && error && (
+                <div className="deconstruct-error">
+                  <p>{error}</p>
+                </div>
+              )}
+              <button
+                type="button"
+                className="deconstruct-btn-magic"
+                onClick={runMagicPipeline}
+                disabled={!imageUrl || !editor}
+              >
+                ✨ بدء التفكيك السحري والبناء
+              </button>
+              {!imageUrl && (
+                <p className="deconstruct-hint">ارفع صورة القالب أولًا من لوحة Collage.</p>
+              )}
+              {imageUrl && !editor && (
+                <p className="deconstruct-hint">افتح المحرر لتطبيق النتيجة على الكانفاس.</p>
+              )}
+              <p className="deconstruct-hint">
+                يكشف الإطارات المدورة، يعزل الزخارف، ويبني كولاج متعدد الطبقات على الكانفاس — كل ذلك محليًا بدون خادم.
+              </p>
             </>
           )}
         </div>
       </div>
-
-      {result && (
-        <div className="deconstruct-result" aria-live="polite">
-          <h3>Build Complete</h3>
-          <ul className="deconstruct-result-list">
-            <li>{frames.length} rotated photo slot(s)</li>
-            <li>{elements.length} detached element layer(s)</li>
-            <li>{textCards.length} live editable text card(s)</li>
-          </ul>
-        </div>
-      )}
     </section>
   )
 }

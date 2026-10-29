@@ -287,10 +287,8 @@ export function CollagePanel(_props: PanelProps) {
                       <DeconstructStudio
                         imageUrl={uploadedImageUrl}
                         options={deconstructOptions}
-                        onBuild={(res) => {
-                          console.log('Deconstructor result:', res)
-                          setDeconstructOpen(false)
-                        }}
+                        editor={editor}
+                        onBuild={() => setDeconstructOpen(false)}
                         onClose={() => setDeconstructOpen(false)}
                       />
                     </Suspense>
@@ -727,10 +725,8 @@ export function CollagePanel(_props: PanelProps) {
                     <DeconstructStudio
                       imageUrl={uploadedImageUrl}
                       options={deconstructOptions}
-                      onBuild={(res) => {
-                        console.log('Deconstructor result:', res)
-                        setDeconstructOpen(false)
-                      }}
+                      editor={editor}
+                      onBuild={() => setDeconstructOpen(false)}
                       onClose={() => setDeconstructOpen(false)}
                     />
                   </Suspense>
