@@ -219,8 +219,10 @@ export function CollagePanel(_props: PanelProps) {
       </button>
 
       {deconstructOpen && (
+        // @ts-ignore lazy-loaded component props
+        {/* @ts-ignore lazy-loaded component props */}
         <Suspense fallback={<div>Loading Smart Design Deconstructor…</div>}>
-          <DeconstructStudio open imageUrl={activeSlot?.src ?? ''} onBuild={(res) => console.log('Deconstructor result:', res)} onClose={() => setDeconstructOpen(false)} />
+          <DeconstructStudio open imageUrl={String(activeSlot?.src ?? '')} onBuild={(res) => console.log('Deconstructor result:', res)} onClose={() => setDeconstructOpen(false)} />
         </Suspense>
       )}
 
