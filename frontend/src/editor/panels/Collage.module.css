@@ -678,3 +678,139 @@
   color: var(--ed-text-dim);
   font: 10.5px / 1.45 var(--font-sans);
 }
+
+/* ============================================
+   Deconstruct Tab
+   ============================================ */
+
+.deconstructTab {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+/* Upload dropzone */
+.dropzone {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  min-height: 120px;
+  padding: 16px;
+  border: 2px dashed var(--ed-border);
+  border-radius: 12px;
+  background: var(--ed-surface-2);
+  color: var(--ed-text-dim);
+  cursor: pointer;
+  transition: border-color var(--ed-dur), background var(--ed-dur);
+  text-align: center;
+}
+.dropzone:hover,
+.dropzone:focus-visible {
+  border-color: var(--ed-accent);
+  background: var(--ed-surface-hover);
+  outline: none;
+}
+.dropzoneDragOver {
+  border-color: var(--ed-accent);
+  background: var(--ed-accent-glow);
+}
+.dropzoneIcon {
+  color: var(--ed-text-dim);
+  opacity: 0.6;
+}
+.dropzoneLabel {
+  margin: 0;
+  color: var(--ed-text);
+  font: 600 12px / 1.3 var(--font-sans);
+}
+.dropzoneHint {
+  margin: 0;
+  color: var(--ed-text-dim);
+  font: 11px / 1.4 var(--font-sans);
+}
+.dropzonePreview {
+  max-width: 100%;
+  max-height: 100px;
+  border-radius: 8px;
+  object-fit: contain;
+}
+
+/* Advanced settings */
+.deconstructSettings {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.toggleRow {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  padding: 4px 0;
+}
+.toggleRow .label {
+  color: var(--ed-text-dim);
+  font: 500 11px / 1 var(--font-sans);
+}
+
+/* ============================================
+   Full-screen Deconstruct Modal Overlay
+   ============================================ */
+
+/* Backdrop + floating modal */
+.deconstructOverlay {
+  position: fixed;
+  inset: 0;
+  z-index: 9999;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: rgba(0, 0, 0, 0.72);
+  backdrop-filter: blur(4px);
+}
+
+.deconstructModal {
+  position: relative;
+  width: min(900px, 95vw);
+  height: min(700px, 90vh);
+  display: flex;
+  flex-direction: column;
+  border-radius: 16px;
+  background: var(--ed-surface);
+  box-shadow: 0 32px 80px rgba(0, 0, 0, 0.5);
+  overflow: hidden;
+}
+
+.deconstructClose {
+  position: absolute;
+  top: 12px;
+  right: 12px;
+  z-index: 10;
+  width: 32px;
+  height: 32px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border: none;
+  border-radius: 8px;
+  background: var(--ed-surface-2);
+  color: var(--ed-text);
+  font-size: 16px;
+  cursor: pointer;
+  transition: background var(--ed-dur);
+}
+.deconstructClose:hover {
+  background: var(--ed-border);
+}
+
+.deconstructLoading {
+  display: flex;
+  flex: 1;
+  align-items: center;
+  justify-content: center;
+  color: var(--ed-text-dim);
+  font: 500 14px / 1 var(--font-sans);
+}

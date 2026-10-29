@@ -154,3 +154,20 @@ exit=0   (0 errors)
 - إضافة اختبار تصدير PSD في متصفح (Playwright) يرسم صورة فعلية ويقارن بكسلات الطبقات.
 - اختبار يدوي لمودال الـ Deconstructor على قوالب حقيقية (نصوص عربية/إنجليزية، إطارات مُدوّرة، زهور وبَاقات).
 - مراقبة حجم الحزمة بعد أي إضافات قادمة (الهامش المتاح للمحرر: 2.1 kB gzip فقط).
+
+---
+
+## 6) إصلاح واجهة Deconstruct Studio (تفكيك قالب)
+
+**الحالة قبل:** كان المودال يُسكَب في الشريط الجانبي الضيق كنص خام بلا زر رفع صور → غير قابل للاستخدام.
+
+**الملفات المُعدَّلة:**
+| الملف | التغيير |
+|---|---|
+| `frontend/src/editor/panels/CollagePanel.tsx` | تبويب «تفكيك» مخصص + Dropzone رفع صورة + 3 Sliders + مفتاحان + زر «ابدأ التفكيك» + Overlay كامل الشاشة |
+| `frontend/src/editor/panels/Collage.module.css` | أنماط Dropzone/الإعدادات/الـ Overlay |
+| `frontend/src/editor/strings/collage.ts` | مفاتيح النصوص العربية الجديدة |
+| `frontend/src/editor/collage/deconstructor/DeconstructStudioModal.tsx` | قبول `options` + مودال Overlay كامل الشاشة |
+| `frontend/src/editor/collage/deconstructor/DeconstructStudio.css` | (جديد) أنماط المودال الداخلية |
+
+**التحقق:** TypeScript 0 أخطاء · الاختبارات 29/29 (deconstructor 7 + collage 9 + layout 13) · ميزانية الحزمة 134.6 kB gzip (≤160) · البناء `✓ built in 21.86s`. الحاويات الثقيلة للـ computer vision ما زالت lazy-loaded.
