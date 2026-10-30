@@ -191,6 +191,9 @@ export async function runNeuralUpscale(
     throw new NeuralUpscaleError(`فشل فتح النموذج: ${error instanceof Error ? error.message : String(error)}`, 'runtime')
   }
 
+  // First breath after the heavy WASM init so the progress bar paints at 8%.
+  await new Promise((resolve) => setTimeout(resolve, 0))
+
   const scale = descriptor.scale
   const tile = descriptor.inputTile
   const overlap = descriptor.inputOverlap
@@ -202,6 +205,10 @@ export async function runNeuralUpscale(
   let firstOutputName: string | null = null
 
   for (let t = 0; t < grid.length; t++) {
+    // Give the browser event loop a breath so progress paints and the
+    // tab doesn't freeze during a long WASM CPU tile (~7.7 s each).
+    await new Promise((resolve) => setTimeout(resolve, 0))
+
     if (signal?.aborted) throw new NeuralUpscaleError('Cancel', 'aborted')
     const tileRect = grid[t]
     const { x, y, w, h } = tileRect
