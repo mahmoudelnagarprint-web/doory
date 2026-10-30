@@ -1,12 +1,12 @@
 import { describe, expect, it } from 'vitest'
 import {
-  NEURAL_MODELS, OVERLAP, TILE, packNHWCtoNCHW, runNeuralUpscale, tileGrid, unpackNCHWtoNHWC,
+  NEURAL_MODELS, DEFAULT_TILE, DEFAULT_OVERLAP, packNHWCtoNCHW, runNeuralUpscale, tileGrid, unpackNCHWtoNHWC,
 } from './upscaleNeural'
 
 describe('tileGrid', () => {
   it('covers the whole image with no gaps and stays in bounds', () => {
     for (const [w, h] of [[1, 1], [80, 60], [97, 97], [250, 130]] as const) {
-      const grid = tileGrid(w, h)
+      const grid = tileGrid(w, h, DEFAULT_TILE, DEFAULT_OVERLAP)
       const coveredBy = (x: number, y: number): boolean =>
         grid.some((t) => x >= t.x && x < t.x + t.w && y >= t.y && y < t.y + t.h)
       for (let y = 0; y < h; y += 7) {
@@ -26,15 +26,15 @@ describe('tileGrid', () => {
   })
 
   it('clamps oversized tiles to image bounds even below the tile size', () => {
-    expect(tileGrid(40, 40)).toEqual([{ x: 0, y: 0, w: 40, h: 40 }])
+    expect(tileGrid(40, 40, DEFAULT_TILE, DEFAULT_OVERLAP)).toEqual([{ x: 0, y: 0, w: 40, h: 40 }])
   })
 
   it('uses the declared overlap so neighbouring tiles share receptive context', () => {
-    const grid = tileGrid(400, 400)
+    const grid = tileGrid(400, 400, DEFAULT_TILE, DEFAULT_OVERLAP)
     expect(grid.length).toBeGreaterThan(1)
-    // Consecutive tiles in a row advance by TILE - OVERLAP (not TILE), which is what overlap means.
+    // Consecutive tiles in a row advance by DEFAULT_TILE - DEFAULT_OVERLAP (not DEFAULT_TILE), which is what overlap means.
     const [first, second] = grid
-    expect(second.x - first.x).toBe(TILE - OVERLAP)
+    expect(second.x - first.x).toBe(DEFAULT_TILE - DEFAULT_OVERLAP)
   })
 })
 

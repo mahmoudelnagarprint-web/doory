@@ -29,6 +29,9 @@ export interface NeuralModelDescriptor {
   nameEn: string
   url: string
   scale: 2 | 4
+  /** The model's fixed input side in pixels — ONNX Real-ESRGAN exports are square-locked. */
+  inputTile: number
+  inputOverlap: number
   /** Whether this model suits photographs (as opposed to illustrations). */
   photo: boolean
   illustrativeHint?: string
@@ -37,16 +40,20 @@ export interface NeuralModelDescriptor {
 /**
  * Model registry — drop ONNX files into `backend` `media/models/real-esrgan/` and they appear
  * (same convention and security posture as the background-removal models: same-origin only).
+ * `realesrgan-x4.onnx` ships here: the x4plus RRDBNet export verified in this repository
+ * (`1x3x128x128 -> 1x3x512x512`, real CPU inference checked).
  */
 export const NEURAL_MODELS: NeuralModelDescriptor[] = [
   {
     id: 'realesrgan-x4',
     label: 'ريال-إي إس آر جي أن 4×',
-    nameEn: 'Real-ESRGAN x4 (photo/illustration)',
+    nameEn: 'Real-ESRGAN x4plus (photo/illustration)',
     url: '/media/models/real-esrgan/realesrgan-x4.onnx',
     scale: 4,
+    inputTile: 128,
+    inputOverlap: 32,
     photo: true,
-    illustrativeHint: 'النموذج العام: صور فوتوغرافية ورسوم',
+    illustrativeHint: 'النموذج العام: صور فوتوغرافية ورسوم (شبكي، بطيء على CPU)',
   },
   {
     id: 'realesrgan-x2',
@@ -54,6 +61,8 @@ export const NEURAL_MODELS: NeuralModelDescriptor[] = [
     nameEn: 'Real-ESRGAN x2 (photo/illustration)',
     url: '/media/models/real-esrgan/realesrgan-x2.onnx',
     scale: 2,
+    inputTile: 128,
+    inputOverlap: 32,
     photo: true,
     illustrativeHint: 'تكبير خفيف بمواصفات عامة',
   },
@@ -68,11 +77,16 @@ function assertSameOrigin(url: string): void {
 }
 
 /** Tile size fed to the model; overlap keeps receptive-field continuity at the seams. */
-export const TILE = 96
-export const OVERLAP = 24
+export const DEFAULT_TILE = 96
+export const DEFAULT_OVERLAP = 24
 
 /** Pure helper: tile coordinates covering `width x height` with the declared overlap. */
-export function tileGrid(width: number, height: number, tile = TILE, overlap = OVERLAP): { x: number; y: number; w: number; h: number }[] {
+export function tileGrid(
+  width: number,
+  height: number,
+  tile: number,
+  overlap: number,
+): { x: number; y: number; w: number; h: number }[] {
   const step = tile - overlap
   const cols = Math.max(1, Math.ceil((Math.max(0, width - 1)) / step))
   const rows = Math.max(1, Math.ceil((Math.max(0, height - 1)) / step))
@@ -178,11 +192,13 @@ export async function runNeuralUpscale(
   }
 
   const scale = descriptor.scale
+  const tile = descriptor.inputTile
+  const overlap = descriptor.inputOverlap
   const outW = source.width * scale
   const outH = source.height * scale
   const out = new Uint8ClampedArray(outW * outH * 4)
-  const grid = tileGrid(source.width, source.height)
-  const areaIn = TILE * TILE
+  const grid = tileGrid(source.width, source.height, tile, overlap)
+  const areaIn = tile * tile
   let firstOutputName: string | null = null
 
   for (let t = 0; t < grid.length; t++) {
@@ -190,27 +206,27 @@ export async function runNeuralUpscale(
     const tileRect = grid[t]
     const { x, y, w, h } = tileRect
 
-    // Crop the tile from the source into a padded TILE x TILE window (edge clamp) so the model
+    // Crop the tile from the source into a padded tile x tile window (edge clamp) so the model
     // always sees its expected geometry regardless of how the tile clipped.
     const tileIn = new Uint8ClampedArray(areaIn * 4)
     for (let ty = 0; ty < h; ty++) {
       const sy = Math.min(source.height - 1, y + ty)
       for (let tx = 0; tx < w; tx++) {
         const sx = Math.min(source.width - 1, x + tx)
-        tileIn.set(source.data.subarray((sy * source.width + sx) * 4, (sy * source.width + sx) * 4 + 4), (ty * TILE + tx) * 4)
+        tileIn.set(source.data.subarray((sy * source.width + sx) * 4, (sy * source.width + sx) * 4 + 4), (ty * tile + tx) * 4)
       }
     }
     // Edge-pad transparent/near-empty rows replicate into the context zone (safe for LP models).
-    const tensor = packNHWCtoNCHW(tileIn, TILE, TILE)
-    const feeds = { [session.inputNames[0]]: new ort.Tensor('float32', tensor, [1, 3, TILE, TILE]) }
+    const tensor = packNHWCtoNCHW(tileIn, tile, tile)
+    const feeds = { [session.inputNames[0]]: new ort.Tensor('float32', tensor, [1, 3, tile, tile]) }
     if (!firstOutputName) firstOutputName = session.outputNames[0]
     const results = await session.run(feeds, [firstOutputName])
     const output = results[firstOutputName]
     if (!(output && output.data instanceof Float32Array)) {
       throw new NeuralUpscaleError('لازم أن يُخرج النموذج مصفوفة float32.', 'runtime')
     }
-    const tileOutW = TILE * scale
-    const rgba = unpackNCHWtoNHWC(output.data as Float32Array, tileOutW, TILE * scale)
+    const tileOutW = tile * scale
+    const rgba = unpackNCHWtoNHWC(output.data as Float32Array, tileOutW, tile * scale)
 
     // Stitch: skip each tile's overlap halo, so two neighbouring tiles never double-write a
     // pixel with slightly different numbers — that is what keeps seams invisible at the
@@ -218,12 +234,12 @@ export async function runNeuralUpscale(
     for (let ty = 0; ty < h; ty++) {
       for (let tx = 0; tx < w; tx++) {
         const gx = x + tx, gy = y + ty // global source coords
-        const fullTile = w >= 2 * OVERLAP + 1
-        const leftHalo = fullTile && tx < OVERLAP && x > 0
-        const rightHalo = fullTile && tx >= w - OVERLAP && x + w < source.width
-        const fullRow = h >= 2 * OVERLAP + 1
-        const topHalo = fullRow && ty < OVERLAP && y > 0
-        const bottomHalo = fullRow && ty >= h - OVERLAP && y + h < source.height
+        const fullTile = w >= 2 * overlap + 1
+        const leftHalo = fullTile && tx < overlap && x > 0
+        const rightHalo = fullTile && tx >= w - overlap && x + w < source.width
+        const fullRow = h >= 2 * overlap + 1
+        const topHalo = fullRow && ty < overlap && y > 0
+        const bottomHalo = fullRow && ty >= h - overlap && y + h < source.height
         if (leftHalo || rightHalo || topHalo || bottomHalo) continue
         const osx = gx * scale, osy = gy * scale
         for (let sy = 0; sy < scale; sy++) {
