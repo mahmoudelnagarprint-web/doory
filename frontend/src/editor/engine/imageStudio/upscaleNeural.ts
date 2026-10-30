@@ -63,7 +63,7 @@ export const NEURAL_MODELS: NeuralModelDescriptor[] = [
 function assertSameOrigin(url: string): void {
   const u = new URL(url, globalThis.location?.href ?? 'http://localhost/')
   if (globalThis.location && u.origin !== globalThis.location.origin) {
-    throw new NeuralUpscaleError(`النموذج على أصل (origin) آخر ممنوع: ${url}`, 'cross-origin')
+    throw new NeuralUpscaleError(`النموذج على أصل (origin) آخر ممنوع: ‎\u2067${url}\u2069‎`, 'cross-origin')
   }
 }
 
@@ -124,7 +124,7 @@ async function loadModel(url: string, signal?: AbortSignal): Promise<ArrayBuffer
   }
   if (response.status === 404 || response.status === 403) {
     throw new NeuralUpscaleError(
-      `ملف النموذج غير موجود على الخادم (${url}). انسخ ملف ‎.onnx من Real-ESRGAN إلى هذا المسار واعيد المحاولة.`,
+      `ملف النموذج غير موجود على الخادم (\u2066${url}\u2069). انسخ ملف \u200e.onnx من Real-ESRGAN إلى هذا المسار واعيد المحاولة.`,
       'model-missing',
     )
   }
