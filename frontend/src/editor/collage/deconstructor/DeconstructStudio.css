@@ -1,12 +1,31 @@
-/* Deconstruct Studio — global styles (imported by the lazily-loaded modal; the modal escapes the
-   sidebar so it uses plain class names, not CSS Modules). The --ed-* tokens come from .root. */
+/* Deconstruct Studio — global styles for the lazily-loaded six-section modal.
+   The modal escapes the sidebar, so these are plain class names, not CSS Modules, and every colour
+   comes from the editor's --ed-* tokens (see EditorApp.module.css). */
 
 .deconstruct-studio {
   display: flex;
   flex-direction: column;
   width: 100%;
   height: 100%;
+  min-height: 0;
   overflow: hidden;
+  background: var(--ed-surface);
+  color: var(--ed-text);
+  font-family: var(--font-sans);
+}
+
+/* ── Header ──────────────────────────────────────────────────────────────── */
+.deconstruct-studio .deconstruct-header {
+  flex: none;
+  padding: 14px 16px 10px;
+  border-bottom: 1px solid var(--ed-border);
+}
+
+.deconstruct-studio .deconstruct-header-row {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 10px;
 }
 
 .deconstruct-studio .deconstruct-title {
@@ -15,75 +34,233 @@
   font: 700 16px / 1.2 var(--font-sans);
 }
 
-.deconstruct-studio .deconstruct-header {
+.deconstruct-studio .deconstruct-intro {
+  margin: 4px 0 0;
+  color: var(--ed-text-dim);
+  font: 12px / 1.5 var(--font-sans);
+}
+
+.deconstruct-studio .deconstruct-close-btn {
   flex: none;
   display: flex;
-  flex-direction: column;
-  gap: 8px;
-  padding: 16px 16px 12px;
-  border-bottom: 1px solid var(--ed-border);
-}
-
-.deconstruct-studio .deconstruct-bar {
-  display: flex;
-  gap: 4px;
-}
-
-.deconstruct-studio .deconstruct-tab {
-  flex: 1;
-  height: 32px;
+  align-items: center;
+  justify-content: center;
+  width: 30px;
+  height: 30px;
   border: 1px solid var(--ed-border);
-  border-radius: 7px;
+  border-radius: var(--ed-radius-sm);
+  background: var(--ed-surface-2);
+  color: var(--ed-text);
+  font-size: 14px;
+  cursor: pointer;
+  transition: background var(--ed-dur) var(--ed-ease);
+}
+.deconstruct-studio .deconstruct-close-btn:hover {
+  background: var(--ed-surface-hover);
+}
+
+.deconstruct-studio .deconstruct-steps {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px;
+  margin-top: 10px;
+}
+
+.deconstruct-studio .deconstruct-step {
+  padding: 3px 8px;
+  border: 1px solid var(--ed-border);
+  border-radius: 999px;
   background: var(--ed-surface-2);
   color: var(--ed-text-dim);
-  font: 600 11px / 1 var(--font-sans);
-  cursor: pointer;
-  transition: background 0.18s, color 0.18s, border-color 0.18s;
+  font: 600 11px / 1.4 var(--font-sans);
 }
-.deconstruct-studio .deconstruct-tab:hover {
-  background: var(--ed-surface-hover);
-  color: var(--ed-text);
-}
-.deconstruct-studio .deconstruct-tab[data-active='true'] {
-  background: var(--ed-accent-glow);
+.deconstruct-studio .deconstruct-step[data-state='active'] {
   border-color: var(--ed-accent);
+  background: var(--ed-accent-glow);
   color: var(--ed-accent);
+}
+.deconstruct-studio .deconstruct-step[data-state='todo'] {
+  opacity: 0.55;
+}
+
+/* ── Body: preview column + control panel ────────────────────────────────── */
+.deconstruct-studio .deconstruct-body {
+  display: flex;
+  flex: 1;
+  min-height: 0;
+  gap: 0;
 }
 
 .deconstruct-studio .deconstruct-stage {
   display: flex;
   flex: 1;
-  min-height: 0;
-  gap: 12px;
-  padding: 12px;
-  overflow: hidden;
-}
-
-.deconstruct-studio .deconstruct-canvas-area {
-  /* The modal body hosts the preview canvas, not the sidebar. */
-  flex: 1;
   min-width: 0;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  border-radius: 10px;
+  flex-direction: column;
+  gap: 10px;
+  padding: 12px;
+  overflow: auto;
   background: var(--ed-surface-2);
-  overflow: hidden;
 }
 
-.deconstruct-studio .deconstruct-canvas {
-  max-width: 100%;
-  max-height: 100%;
-  object-fit: contain;
-  border-radius: 8px;
-}
-
-.deconstruct-studio .deconstruct-actions {
+.deconstruct-studio .deconstruct-panel {
   flex: none;
-  width: 220px;
+  width: 380px;
+  max-width: 46%;
   display: flex;
   flex-direction: column;
   gap: 10px;
+  padding: 12px;
+  overflow: auto;
+  border-left: 1px solid var(--ed-border);
+}
+
+/* ── Preview ─────────────────────────────────────────────────────────────── */
+.deconstruct-studio .deconstruct-preview {
+  position: relative;
+  width: 100%;
+  max-width: 100%;
+  margin: 0 auto;
+  border-radius: var(--ed-radius-sm);
+  background:
+    repeating-conic-gradient(from 0deg, var(--ed-surface-3) 0% 25%, transparent 0% 50%) 0 0 / 18px 18px;
+  box-shadow: 0 6px 24px rgb(0 0 0 / 0.18);
+  touch-action: none;
+  user-select: none;
+}
+.deconstruct-studio .deconstruct-preview[data-tool='erase'],
+.deconstruct-studio .deconstruct-preview[data-tool='restore'] {
+  cursor: crosshair;
+}
+
+.deconstruct-studio .deconstruct-preview-img {
+  display: block;
+  width: 100%;
+  height: 100%;
+  border-radius: var(--ed-radius-sm);
+  pointer-events: none;
+}
+
+.deconstruct-studio .deconstruct-preview-empty {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 180px;
+  border: 1px dashed var(--ed-border);
+  border-radius: var(--ed-radius-sm);
+  color: var(--ed-text-dim);
+  font: 13px / 1.5 var(--font-sans);
+}
+
+.deconstruct-studio .deconstruct-box {
+  position: absolute;
+  padding: 0;
+  border: 1.5px solid var(--ed-accent);
+  border-radius: 2px;
+  background: rgb(0 0 0 / 0.04);
+  cursor: pointer;
+}
+.deconstruct-studio .deconstruct-box[data-selected='true'] {
+  border-width: 3px;
+  box-shadow: 0 0 0 2px var(--ed-accent-glow);
+}
+.deconstruct-studio .deconstruct-box[data-hidden='true'] {
+  display: none;
+}
+
+.deconstruct-studio .deconstruct-marquee {
+  position: absolute;
+  border: 1px dashed var(--ed-accent);
+  background: var(--ed-accent-glow);
+  pointer-events: none;
+}
+
+.deconstruct-studio .deconstruct-preview-meta {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px 12px;
+  color: var(--ed-text-dim);
+  font: 12px / 1.5 var(--font-sans);
+}
+
+/* ── Background comparison ───────────────────────────────────────────────── */
+.deconstruct-studio .deconstruct-compare-wrap {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.deconstruct-studio .deconstruct-compare {
+  position: relative;
+  width: 100%;
+  overflow: hidden;
+  border-radius: var(--ed-radius-sm);
+  background: var(--ed-surface-3);
+  touch-action: none;
+  user-select: none;
+}
+
+.deconstruct-studio .deconstruct-compare-img {
+  display: block;
+  width: 100%;
+  height: 100%;
+  pointer-events: none;
+}
+
+.deconstruct-studio .deconstruct-compare-after {
+  position: absolute;
+  inset: 0;
+}
+
+.deconstruct-studio .deconstruct-compare-line {
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  width: 2px;
+  margin-left: -1px;
+  background: var(--ed-accent);
+  pointer-events: none;
+}
+
+.deconstruct-studio .deconstruct-compare-tag {
+  position: absolute;
+  top: 6px;
+  padding: 2px 6px;
+  border-radius: 999px;
+  background: rgb(0 0 0 / 0.55);
+  color: #fff;
+  font: 600 10px / 1.4 var(--font-sans);
+  pointer-events: none;
+}
+.deconstruct-studio .deconstruct-compare-tag.before {
+  left: 6px;
+}
+.deconstruct-studio .deconstruct-compare-tag.after {
+  right: 6px;
+}
+
+.deconstruct-studio .deconstruct-compare-range {
+  width: 100%;
+}
+
+/* ── Panel sections ──────────────────────────────────────────────────────── */
+.deconstruct-studio .deconstruct-section {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  padding: 10px;
+  border: 1px solid var(--ed-border);
+  border-radius: var(--ed-radius-sm);
+  background: var(--ed-surface);
+}
+
+.deconstruct-studio .deconstruct-section-title {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  margin: 0;
+  color: var(--ed-text);
+  font: 700 12px / 1.3 var(--font-sans);
 }
 
 .deconstruct-studio .deconstruct-hint {
@@ -92,192 +269,372 @@
   font: 12px / 1.5 var(--font-sans);
 }
 
-.deconstruct-studio .deconstruct-btn-primary {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  gap: 6px;
-  height: 38px;
-  padding: 0 16px;
-  border: none;
-  border-radius: 9px;
-  background: var(--ed-accent);
-  color: #fff;
-  font: 600 13px / 1 var(--font-sans);
-  cursor: pointer;
-  transition: background 0.18s, opacity 0.18s;
-}
-.deconstruct-studio .deconstruct-btn-primary:hover:not(:disabled) {
-  background: var(--ed-accent-hover);
-}
-.deconstruct-studio .deconstruct-btn-primary:disabled {
-  opacity: 0.5;
-  cursor: not-allowed;
-}
-
-.deconstruct-studio .deconstruct-result {
-  flex: none;
-  padding: 12px 16px;
-  border-top: 1px solid var(--ed-border);
-  background: var(--ed-surface-2);
-}
-.deconstruct-studio .deconstruct-result h3 {
-  margin: 0 0 6px;
-  color: var(--ed-text);
-  font: 700 13px / 1.2 var(--font-sans);
-}
-.deconstruct-studio .deconstruct-result-list {
-  margin: 0;
-  padding-left: 18px;
-  color: var(--ed-text-dim);
-  font: 12px / 1.6 var(--font-sans);
-}
-
-/* ── Header row (title + close button) ────────────────────────────────────── */
-.deconstruct-studio .deconstruct-header-row {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 8px;
-  padding-bottom: 8px;
-  border-bottom: 1px solid var(--ed-border);
-}
-
-/* ── Close button ─────────────────────────────────────────────────────────── */
-.deconstruct-studio .deconstruct-close-btn {
-  width: 32px;
-  height: 32px;
-  flex: none;
-  border: none;
-  border-radius: 8px;
-  background: var(--ed-surface-2);
-  color: var(--ed-text);
-  font-size: 16px;
-  cursor: pointer;
-  transition: background 0.18s;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-}
-.deconstruct-studio .deconstruct-close-btn:hover {
-  background: var(--ed-surface-hover);
-}
-
-/* ── Progress bar ─────────────────────────────────────────────────────────── */
-.deconstruct-studio .deconstruct-progress-wrap {
-  display: flex;
-  flex-direction: column;
-  gap: 4px;
-  margin-top: 8px;
-}
-.deconstruct-studio .deconstruct-progress-bar {
-  height: 6px;
-  border-radius: 999px;
-  background: var(--ed-surface-2);
-  overflow: hidden;
-}
-.deconstruct-studio .deconstruct-progress-fill {
-  height: 100%;
-  background: var(--ed-accent);
-  border-radius: 999px;
-  transition: width 0.4s ease;
-}
-.deconstruct-studio .deconstruct-progress-fill.error {
-  background: var(--ed-danger);
-}
-.deconstruct-studio .deconstruct-progress-msg {
-  margin: 0;
-  color: var(--ed-text-dim);
-  font: 500 11px / 1 var(--font-sans);
-}
-
-/* ── Waiting state ────────────────────────────────────────────────────────── */
-.deconstruct-studio .deconstruct-waiting {
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  gap: 12px;
-}
-.deconstruct-studio .deconstruct-spinner {
-  width: 36px;
-  height: 36px;
-  border: 3px solid var(--ed-border);
-  border-top-color: var(--ed-accent);
-  border-radius: 50%;
-  animation: dsh-spin 0.8s linear infinite;
-}
-@keyframes dsh-spin {
-  to { transform: rotate(360deg); }
-}
-
-/* ── Result / error boxes ──────────────────────────────────────────────────── */
-.deconstruct-studio .deconstruct-result-box {
-  padding: 12px;
-  border: 1px solid var(--ed-border);
-  border-radius: 10px;
-  background: var(--ed-surface-2);
-}
-.deconstruct-studio .deconstruct-result-box h3 {
-  margin: 0 0 8px;
-  font: 700 13px / 1.2 var(--font-sans);
-  color: var(--ed-text);
-}
-.deconstruct-studio .deconstruct-result-box ul {
-  margin: 0;
-  padding-left: 16px;
-  color: var(--ed-text-dim);
-  font: 12px / 1.7 var(--font-sans);
-}
 .deconstruct-studio .deconstruct-error {
-  padding: 10px;
+  margin: 0;
+  padding: 8px 10px;
   border: 1px solid var(--ed-danger);
-  border-radius: 8px;
-  background: color-mix(in srgb, var(--ed-danger) 12%, transparent);
+  border-radius: var(--ed-radius-sm);
+  background: var(--ed-danger-dim);
   color: var(--ed-danger);
   font: 12px / 1.5 var(--font-sans);
 }
 
-/* ── Magic button ─────────────────────────────────────────────────────────── */
-.deconstruct-studio .deconstruct-btn-magic {
+.deconstruct-studio .deconstruct-notice {
+  margin: 0;
+  padding: 8px 10px;
+  border: 1px solid var(--ed-border);
+  border-radius: var(--ed-radius-sm);
+  background: var(--ed-surface-2);
+  color: var(--ed-text-dim);
+  font: 12px / 1.5 var(--font-sans);
+}
+
+.deconstruct-studio .deconstruct-warning {
+  margin: 0;
+  padding: 8px 10px;
+  border: 1px solid var(--ed-border);
+  border-radius: var(--ed-radius-sm);
+  background: var(--ed-accent-glow);
+  color: var(--ed-text);
+  font: 12px / 1.6 var(--font-sans);
+}
+.deconstruct-studio .deconstruct-warning strong {
+  display: block;
+  margin-bottom: 2px;
+}
+.deconstruct-studio .deconstruct-warning ul {
+  margin: 0;
+  padding-inline-start: 16px;
+}
+
+/* ── Drop zone / image input ─────────────────────────────────────────────── */
+.deconstruct-studio .deconstruct-drop {
   display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 6px;
+  padding: 14px 10px;
+  border: 1px dashed var(--ed-border);
+  border-radius: var(--ed-radius-sm);
+  background: var(--ed-surface-2);
+  text-align: center;
+  transition: border-color var(--ed-dur) var(--ed-ease), background var(--ed-dur) var(--ed-ease);
+}
+.deconstruct-studio .deconstruct-drop[data-dragging='true'] {
+  border-color: var(--ed-accent);
+  background: var(--ed-accent-glow);
+}
+
+.deconstruct-studio .deconstruct-input-source {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  overflow: hidden;
+  clip-path: inset(50%);
+  white-space: nowrap;
+}
+
+/* ── Buttons ─────────────────────────────────────────────────────────────── */
+.deconstruct-studio .deconstruct-btn {
+  display: inline-flex;
   align-items: center;
   justify-content: center;
-  gap: 8px;
-  width: 100%;
-  height: 44px;
-  border: none;
-  border-radius: 10px;
-  background: var(--ed-accent);
-  color: #fff;
-  font: 700 14px / 1 var(--font-sans);
+  gap: 6px;
+  min-height: 32px;
+  padding: 0 12px;
+  border: 1px solid var(--ed-border);
+  border-radius: var(--ed-radius-sm);
+  background: var(--ed-surface-2);
+  color: var(--ed-text);
+  font: 600 12px / 1 var(--font-sans);
   cursor: pointer;
-  transition: background 0.18s, transform 0.1s;
+  transition: background var(--ed-dur) var(--ed-ease), border-color var(--ed-dur) var(--ed-ease);
 }
-.deconstruct-studio .deconstruct-btn-magic:hover:not(:disabled) {
-  background: var(--ed-accent-hover);
-  transform: translateY(-1px);
+.deconstruct-studio .deconstruct-btn:hover:not(:disabled) {
+  background: var(--ed-surface-hover);
 }
-.deconstruct-studio .deconstruct-btn-magic:disabled {
+.deconstruct-studio .deconstruct-btn:disabled {
   opacity: 0.5;
   cursor: not-allowed;
 }
+.deconstruct-studio .deconstruct-btn[aria-disabled='true'] {
+  opacity: 0.5;
+  pointer-events: none;
+}
+.deconstruct-studio .deconstruct-btn.wide {
+  width: 100%;
+}
+.deconstruct-studio .deconstruct-btn.primary {
+  border-color: transparent;
+  background: var(--ed-accent);
+  color: #fff;
+}
+.deconstruct-studio .deconstruct-btn.primary:hover:not(:disabled) {
+  background: var(--ed-accent-hover);
+}
+.deconstruct-studio .deconstruct-btn.danger {
+  border-color: var(--ed-danger);
+  color: var(--ed-danger);
+}
 
-/* ── Secondary button ──────────────────────────────────────────────────────── */
-.deconstruct-studio .deconstruct-btn-secondary {
+.deconstruct-studio .deconstruct-btn-row {
   display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+.deconstruct-studio .deconstruct-btn-row > .deconstruct-btn {
+  flex: 1 1 auto;
+}
+
+.deconstruct-studio .deconstruct-icon-btn {
+  display: inline-flex;
   align-items: center;
   justify-content: center;
-  width: 100%;
-  height: 36px;
+  width: 26px;
+  height: 26px;
   border: 1px solid var(--ed-border);
-  border-radius: 8px;
-  background: transparent;
+  border-radius: 6px;
+  background: var(--ed-surface-2);
   color: var(--ed-text-dim);
-  font: 600 13px / 1 var(--font-sans);
+  font-size: 12px;
   cursor: pointer;
-  transition: background 0.18s, color 0.18s;
 }
-.deconstruct-studio .deconstruct-btn-secondary:hover {
+.deconstruct-studio .deconstruct-icon-btn:hover:not(:disabled) {
   background: var(--ed-surface-hover);
   color: var(--ed-text);
+}
+.deconstruct-studio .deconstruct-icon-btn:disabled {
+  opacity: 0.4;
+  cursor: not-allowed;
+}
+.deconstruct-studio .deconstruct-icon-btn[aria-pressed='true'] {
+  border-color: var(--ed-accent);
+  color: var(--ed-accent);
+}
+.deconstruct-studio .deconstruct-icon-btn.danger:hover:not(:disabled) {
+  border-color: var(--ed-danger);
+  color: var(--ed-danger);
+}
+
+/* ── Progress ────────────────────────────────────────────────────────────── */
+.deconstruct-studio .deconstruct-progress {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.deconstruct-studio .deconstruct-progress-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  color: var(--ed-text-dim);
+  font: 500 11px / 1.4 var(--font-sans);
+}
+
+.deconstruct-studio .deconstruct-progress-bar {
+  height: 6px;
+  overflow: hidden;
+  border-radius: 999px;
+  background: var(--ed-surface-3);
+}
+
+.deconstruct-studio .deconstruct-progress-fill {
+  height: 100%;
+  border-radius: 999px;
+  background: var(--ed-accent);
+  transition: width var(--ed-dur) ease;
+}
+
+.deconstruct-studio .deconstruct-spinner {
+  width: 14px;
+  height: 14px;
+  border: 2px solid var(--ed-border);
+  border-top-color: var(--ed-accent);
+  border-radius: 50%;
+  animation: dsh-deconstruct-spin 0.8s linear infinite;
+}
+@keyframes dsh-deconstruct-spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+/* ── Layers ──────────────────────────────────────────────────────────────── */
+.deconstruct-studio .deconstruct-layers {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  max-height: 320px;
+  overflow: auto;
+  margin: 0;
+  padding: 0;
+  padding-inline-end: 2px;
+  list-style: none;
+}
+
+.deconstruct-studio .deconstruct-layer {
+  display: flex;
+  align-items: flex-start;
+  gap: 8px;
+  padding: 6px;
+  border: 1px solid var(--ed-border);
+  border-radius: var(--ed-radius-sm);
+  background: var(--ed-surface-2);
+}
+.deconstruct-studio .deconstruct-layer[data-selected='true'] {
+  border-color: var(--ed-accent);
+  background: var(--ed-accent-glow);
+}
+
+.deconstruct-studio .deconstruct-layer-thumb {
+  flex: none;
+  width: 40px;
+  height: 40px;
+  border-radius: 6px;
+  background: var(--ed-surface-3);
+  object-fit: contain;
+}
+
+.deconstruct-studio .deconstruct-layer-main {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.deconstruct-studio .deconstruct-layer-name {
+  width: 100%;
+  min-width: 0;
+  height: 24px;
+  padding: 0 6px;
+  border: 1px solid var(--ed-border);
+  border-radius: 6px;
+  background: var(--ed-surface);
+  color: var(--ed-text);
+  font: 600 12px / 1 var(--font-sans);
+}
+.deconstruct-studio .deconstruct-layer-name:focus-visible {
+  outline: none;
+  box-shadow: var(--ed-focus-glow);
+}
+
+.deconstruct-studio .deconstruct-layer-meta {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 4px 6px;
+}
+
+.deconstruct-studio .deconstruct-badge {
+  padding: 1px 6px;
+  border-radius: 999px;
+  background: var(--ed-surface-3);
+  color: var(--ed-text-dim);
+  font: 600 10px / 1.6 var(--font-sans);
+}
+
+.deconstruct-studio .deconstruct-conf {
+  color: var(--ed-text-dim);
+  font: 500 10px / 1.6 var(--font-sans);
+}
+
+.deconstruct-studio .deconstruct-layer-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 3px;
+}
+
+.deconstruct-studio .deconstruct-method {
+  color: var(--ed-text-dim);
+  font: 500 10px / 1.6 var(--font-sans);
+}
+
+/* ── Fields ──────────────────────────────────────────────────────────────── */
+.deconstruct-studio .deconstruct-field {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  color: var(--ed-text-dim);
+  font: 600 11px / 1.4 var(--font-sans);
+}
+
+.deconstruct-studio .deconstruct-select,
+.deconstruct-studio .deconstruct-text {
+  width: 100%;
+  height: 28px;
+  padding: 0 6px;
+  border: 1px solid var(--ed-border);
+  border-radius: 6px;
+  background: var(--ed-surface);
+  color: var(--ed-text);
+  font: 500 12px / 1 var(--font-sans);
+}
+.deconstruct-studio .deconstruct-select:focus-visible,
+.deconstruct-studio .deconstruct-text:focus-visible {
+  outline: none;
+  box-shadow: var(--ed-focus-glow);
+}
+
+.deconstruct-studio .deconstruct-radios {
+  display: flex;
+  gap: 12px;
+  margin: 0;
+  padding: 0;
+  border: 0;
+}
+.deconstruct-studio .deconstruct-radios label {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  color: var(--ed-text);
+  font: 500 12px / 1.4 var(--font-sans);
+}
+.deconstruct-studio .deconstruct-radios legend {
+  padding: 0;
+  color: var(--ed-text-dim);
+  font: 600 11px / 1.4 var(--font-sans);
+}
+
+/* ── Assets picker ───────────────────────────────────────────────────────── */
+.deconstruct-studio .deconstruct-assets {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  padding: 8px;
+  border: 1px solid var(--ed-accent);
+  border-radius: var(--ed-radius-sm);
+  background: var(--ed-surface-2);
+}
+
+.deconstruct-studio .deconstruct-assets-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(64px, 1fr));
+  gap: 6px;
+  max-height: 220px;
+  overflow: auto;
+}
+
+.deconstruct-studio .deconstruct-asset {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 3px;
+  padding: 4px;
+  border: 1px solid var(--ed-border);
+  border-radius: 6px;
+  background: var(--ed-surface);
+  color: var(--ed-text-dim);
+  font: 500 10px / 1.3 var(--font-sans);
+  cursor: pointer;
+}
+.deconstruct-studio .deconstruct-asset:hover {
+  border-color: var(--ed-accent);
+  color: var(--ed-text);
+}
+.deconstruct-studio .deconstruct-asset img {
+  width: 100%;
+  height: 40px;
+  object-fit: contain;
 }

@@ -1,15 +1,16 @@
 /* eslint-disable @typescript-eslint/no-explicit-any, @typescript-eslint/no-unused-vars, prefer-const */
 /**
- * Smart Design Deconstructor — Rotated Frame Detector + Foreground Occlusion Layer.
+ * Design Decomposer — legacy bright-frame detector for flat collage templates.
  *
- * Takes a flat raster template image and recovers the true tilted photo frames
- * (oriented bounding boxes) even when ornaments (pushpins, bows, washi tape, flowers)
- * intrude into the frame corners/edges. Inside every recovered rotated rectangle we
- * classify pixels that deviate from the frame's interior paper colour — those
- * intruding foreground pixels are feathered into a transparent PNG overlay that
- * sits above the inserted photo, so pushpins / ribbons / tape stay *on top*.
+ * Superseded by `./pipeline.ts` (real segmentation + region decomposition), which is what the Design
+ * Decomposer studio runs; this module stays only for the legacy template path and its tests.
  *
- * Everything runs client-side on a hidden OffscreenCanvas. No server, no paid API.
+ * What it genuinely does, with no overstating: it thresholds bright "paper" pixels, groups them into
+ * connected components and fits a minimum-area rectangle to each — a classical CV detector for *photo
+ * frames*, not a segmentation model, and not an element extractor. Inside each recovered rectangle it
+ * classifies pixels that deviate from the frame's interior paper colour and feathers them into a
+ * transparent PNG overlay, so pushpins / ribbons / tape intruding into a frame stay on top of the photo
+ * dropped into it. Everything runs client-side on a hidden OffscreenCanvas. No server, no paid API.
  */
 import type { DeconstructorOptions, Point2D, Rect2D, RotatedFrame } from './types'
 

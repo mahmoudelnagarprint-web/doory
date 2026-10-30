@@ -1,6 +1,8 @@
 import { useQueryClient } from '@tanstack/react-query'
 import { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState, type ReactNode } from 'react'
+import { configureDeconstructorModel } from '@/editor/collage/deconstructor/providers/modelRegistry'
 import { configureBackgroundRemoval } from '@/editor/engine/bgRemoval/install'
+import { parseModelDescriptor } from '@/editor/engine/bgRemoval/model'
 import { ApiError, authApi, configApi, DEFAULT_CONFIG, isApiError, setUnauthorizedHandler } from '@/lib/api'
 import { setSizeChoicesUser } from '@/lib/sizePresets/choices'
 import type { ApiUser, AppConfig, RegisterInput } from '@/types/api'
@@ -75,6 +77,9 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         setConfig(cfg.value)
         // Before any consumer sees the new config, so the editor's toolbar already knows whether the button works.
         configureBackgroundRemoval(cfg.value)
+        // The Design Decomposer segments with the same installed model; it must know before the studio opens,
+        // and it falls back to a labelled classical analysis when no model is installed on this server.
+        configureDeconstructorModel(parseModelDescriptor(cfg.value.assets?.background_removal_model))
       }
       if (me.status === 'fulfilled') {
         userRef.current = me.value.user

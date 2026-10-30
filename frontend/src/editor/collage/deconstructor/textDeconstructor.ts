@@ -1,12 +1,15 @@
 /* eslint-disable @typescript-eslint/no-explicit-any, @typescript-eslint/no-unused-vars, prefer-const */
 /**
- * Smart Design Deconstructor — Text Isolation, Clean Erasure & Live Typography.
+ * Design Decomposer — legacy ink isolation for flat templates.
  *
- * Detects raster text on quote cards inside a flat template, erases it cleanly from the paper
- * texture (Telea inpainting on a binarised ink mask), and converts it into a live editable
- * text layer (font size / ink colour / paper colour / rotation sampled from the raster).
+ * Superseded by `./pipeline.ts` + `./ocr.ts`, which is what the Design Decomposer studio runs; this module
+ * stays only for the legacy template path and its tests.
  *
- * All runs client-side on a hidden OffscreenCanvas. No server, no paid API.
+ * What it genuinely does, with no overstating: `binarizeInk` is adaptive (mean-based) thresholding, and
+ * `detectAndEraseText` groups ink components and rebuilds their pixels with real exemplar inpainting. It
+ * does **not** read text — there is no OCR engine in this project, so `text` is always `''` and the caller
+ * is expected to type it. Anything that looks like lettering is better handled by the pipeline's text
+ * candidate path, which reports honestly when OCR is unavailable.
  */
 import type { DeconstructorOptions, DetectedTextCard, InpaintResult, Rect2D, Raster } from './types'
 import { inpaintHole } from './elementDetacher'

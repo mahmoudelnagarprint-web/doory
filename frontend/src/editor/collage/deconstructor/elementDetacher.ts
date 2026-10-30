@@ -1,14 +1,20 @@
 /* eslint-disable @typescript-eslint/no-explicit-any, @typescript-eslint/no-unused-vars, prefer-const */
 /**
- * Smart Design Deconstructor — Element Detacher + Background Inpainting.
+ * Design Decomposer — legacy element isolation helpers.
  *
- * Allows the user to isolate and move any decorative element (flower, bow, card, pin,
- * sticker) from a flat template image. Uses interactive Lasso / Box GrabCut segmentation +
- * Telea Fast Marching Inpainting for hole healing.
+ * Superseded by `./pipeline.ts`, which is what the Design Decomposer studio actually runs; these helpers
+ * are kept because they are still exported and covered by tests, and they now delegate their fill to the
+ * real exemplar inpainting in `./inpaint.ts`.
  *
- * All runs client-side on a hidden OffscreenCanvas. No server, no paid API.
+ * What each piece genuinely is (no overstating):
+ *  - `generateGrabCutMask` is a colour-similarity flood fill seeded from user points — it is NOT GrabCut
+ *    and there is no energy minimisation; it is exact for flat artwork and approximate elsewhere.
+ *  - `inpaintHole` rebuilds the pixels not marked known using `inpaintExemplar` (Criminisi-style
+ *    exemplar fill); it is not Telea's fast-marching scheme.
+ *  - `detachElement` = seed mask + cut + real fill, for one user-drawn element.
  */
 import type { DeconstructorOptions, InpaintResult, Point2D, Rect2D, Raster } from './types'
+import { inpaintExemplar } from './inpaint'
 
 
 type PixelMask = Uint8Array // 0 background, 255 foreground.
@@ -50,6 +56,11 @@ function rasterToDataUrl(raster: Raster): string {
 }
 
 
+/**
+ * Colour-similarity flood fill seeded from user points (NOT GrabCut — there is no energy minimisation or
+ * histogram modelling here, and the name is kept only because the template tests call it). Exact for flat
+ * artwork on a uniform ground, approximate where a real matting model would be needed.
+ */
 export function generateGrabCutMask(raster: Raster, points: Point2D[], _options?: Partial<DeconstructorOptions>): PixelMask {
   const { width, height, data } = raster
   const mask = new Uint8Array(width * height)
@@ -132,82 +143,21 @@ function boundingBoxOfMask(mask: PixelMask, width: number, height: number): Rect
 }
 
 
+/**
+ * Rebuilds every pixel the mask does NOT mark as known, from real surrounding content.
+ *
+ * Legacy mask convention (kept for the template path): `255` marks pixels to KEEP, `0` marks pixels to
+ * REBUILD. The actual fill is the decomposer's real exemplar inpainting (`inpaintExemplar`, which uses the
+ * opposite `255 = rebuild` convention), so the mask is inverted before the call. When nothing needs
+ * rebuilding the original raster is returned as a copy, which is the correct answer, not a shortcut.
+ */
 export async function inpaintHole(raster: Raster, mask: PixelMask, _options?: Partial<DeconstructorOptions>): Promise<InpaintResult> {
   const { width, height } = raster
-  const dist = new Float64Array(width * height)
-  const queue: number[] = []
-  const known = new Uint8Array(width * height)
-
-  for (let i = 0; i < width * height; i++) {
-    if (mask[i] === 255) {
-      known[i] = 1
-      dist[i] = 0
-      queue.push(i)
-    }
-  }
-
-  // Fast marching: simple multi-source propagation via array scan (fast enough for holes).
-  let head = 0
-  while (head < queue.length) {
-    const i = queue[head++]
-    const x = i % width
-    const y = (i / width) | 0
-    const neighbours = [-1, 1, -width, width, -width - 1, -width + 1, width - 1, width + 1]
-    for (const d of neighbours) {
-      const ni = i + d
-      if (ni < 0 || ni >= width * height) continue
-      const nx = ni % width
-      const ny = (ni / width) | 0
-      if ((d === -1 && x === 0) || (d === 1 && x === width - 1)) continue
-      if (known[ni] || mask[ni] === 0) continue
-      const step = Math.sqrt((x - nx) ** 2 + (y - ny) ** 2) + 0.5
-      if (dist[ni] > dist[i] + step) {
-        dist[ni] = dist[i] + step
-        queue.push(ni)
-      }
-    }
-  }
-
-  // Fill holes using gradient-weighted interpolation (from neighbour gradients).
-  const src = new Uint8ClampedArray(raster.data)
-  const out = new Uint8ClampedArray(raster.data)
-  for (let y = 0; y < height; y++) {
-    for (let x = 0; x < width; x++) {
-      const i = y * width + x
-      if (mask[i] !== 0) continue // keep original (foreground or known).
-      const neighbours: { idx: number; dist: number; weight: number }[] = []
-      const neighboursIdx = [-1, 1, -width, width, -width - 1, -width + 1, width - 1, width + 1]
-      for (const d of neighboursIdx) {
-        const ni = i + d
-        if (ni < 0 || ni >= width * height) continue
-        const nx = ni % width
-        const ny = (ni / width) | 0
-        if ((d === -1 && x === 0) || (d === 1 && x === width - 1)) continue
-        if (mask[ni] === 0) continue
-        const dDist = Math.sqrt((x - nx) ** 2 + (y - ny) ** 2)
-        neighbours.push({ idx: ni, dist: dDist, weight: 1 / (dDist + 0.001) })
-      }
-      if (neighbours.length === 0) continue
-      const totalWeight = neighbours.reduce((s, n) => s + n.weight, 0)
-      const r = neighbours.reduce((sum, n) => sum + src[n.idx * 4] * n.weight, 0) / totalWeight
-      const g = neighbours.reduce((sum, n) => sum + src[n.idx * 4 + 1] * n.weight, 0) / totalWeight
-      const b = neighbours.reduce((sum, n) => sum + src[n.idx * 4 + 2] * n.weight, 0) / totalWeight
-      out[i * 4] = r
-      out[i * 4 + 1] = g
-      out[i * 4 + 2] = b
-      out[i * 4 + 3] = src[i * 4 + 3]
-    }
-  }
-  const healed: Raster = { width, height, data: out }
+  if (mask.length !== width * height) throw new Error('حجم القناع لا يطابق أبعاد الصورة.')
+  const holes = new Uint8Array(width * height)
+  for (let i = 0; i < holes.length; i++) holes[i] = mask[i] === 0 ? 255 : 0
+  const healed = inpaintExemplar(raster, holes)
   return { dataUrl: rasterToDataUrl(healed), width, height }
-}
-
-
-export async function synthesizeTexture(raster: Raster, _mask: PixelMask): Promise<string> {
-  // Placeholder exemplar-based texture synthesis: keeps the original pixels intact
-  // where there is no hole. A full implementation can be added later without
-  // touching the initial editor bundle.
-  return rasterToDataUrl(raster)
 }
 
 

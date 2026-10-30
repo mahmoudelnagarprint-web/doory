@@ -1,4 +1,4 @@
-import { lazy, Suspense, useMemo, useRef, useState } from 'react'
+import { lazy, Suspense, useEffect, useMemo, useRef, useState } from 'react'
 import { ArrowDown, ArrowLeft, ArrowRight, ArrowUp, Check, Grid, LayoutGrid, Palette, RotateCcw, Scissors, Search, Sparkles, Sticker, Type, Upload, ZoomIn, ZoomOut } from 'lucide-react'
 import type { LocalAsset } from '@/types/api'
 import type { CollageLayoutId, ImageFilterSpec } from '@/types/document'
@@ -82,6 +82,166 @@ function SlotThumb({ src, index, filled }: { src?: string; index: number; filled
   )
 }
 
+/**
+ * The tab strip. It is rendered by BOTH panel states (empty page and page with a collage), so every tab —
+ * Deconstruct included — is always visible and clickable, even on a brand-new empty project.
+ */
+function TabStrip({ tab, onSelect }: { tab: Tab; onSelect: (tab: Tab) => void }) {
+  return (
+    <div className={styles.tabs} role="tablist" aria-label={collageStrings.title}>
+      {TABS.map(({ id, label, icon: Icon }) => (
+        <button key={id} type="button" role="tab" className={styles.tab} aria-selected={tab === id} onClick={() => onSelect(id)}>
+          <Icon size={14} aria-hidden="true" />
+          <span>{label}</span>
+        </button>
+      ))}
+    </div>
+  )
+}
+
+interface DeconstructTabProps {
+  editor: ReturnType<typeof useEditor>
+  pageSize: { width: number; height: number }
+  /** The chosen template image, or null while the studio's own upload is still the only source. */
+  imageUrl: string | null
+  options: DeconstructorOptions
+  open: boolean
+  onPickFile: (file: File) => void
+  onOptionsChange: (options: DeconstructorOptions) => void
+  onOpenChange: (open: boolean) => void
+}
+
+/**
+ * The single implementation of the Deconstruct tab body, shared by the empty page and by a page that already
+ * has a collage (it used to be two copies that drifted apart). Choosing an image here is optional: the studio
+ * modal opens with no image too, and offers its own upload.
+ */
+function DeconstructTab({ editor, pageSize, imageUrl, options, open, onPickFile, onOptionsChange, onOpenChange }: DeconstructTabProps) {
+  const fileInputRef = useRef<HTMLInputElement>(null)
+
+  const pickFile = (file: File): void => {
+    onPickFile(file)
+    onOpenChange(false)
+  }
+
+  return (
+    <div className={styles.deconstructTab}>
+      {/* ── Upload dropzone ── */}
+      <div
+        className={styles.dropzone}
+        onClick={() => fileInputRef.current?.click()}
+        onDragOver={(e) => { e.preventDefault(); e.currentTarget.classList.add(styles.dropzoneDragOver) }}
+        onDragLeave={(e) => e.currentTarget.classList.remove(styles.dropzoneDragOver)}
+        onDrop={(e) => {
+          e.preventDefault()
+          e.currentTarget.classList.remove(styles.dropzoneDragOver)
+          const file = e.dataTransfer.files[0]
+          if (file) pickFile(file)
+        }}
+        role="button"
+        tabIndex={0}
+        aria-label={collageStrings.deconstructUpload}
+        onKeyDown={(e) => e.key === 'Enter' && fileInputRef.current?.click()}
+      >
+        <input
+          ref={fileInputRef}
+          type="file"
+          accept="image/*"
+          style={{ display: 'none' }}
+          onChange={(e) => {
+            const file = e.target.files?.[0]
+            if (file) pickFile(file)
+            e.target.value = ''
+          }}
+        />
+        {imageUrl ? (
+          <img src={imageUrl} alt="Template preview" className={styles.dropzonePreview} />
+        ) : (
+          <>
+            <Upload size={32} className={styles.dropzoneIcon} />
+            <p className={styles.dropzoneLabel}>{collageStrings.deconstructUpload}</p>
+            <p className={styles.dropzoneHint}>{collageStrings.deconstructUploadHint}</p>
+          </>
+        )}
+      </div>
+
+      {/* ── Settings ── */}
+      <div className={styles.deconstructSettings}>
+        <span className={styles.sectionTitle}>{collageStrings.deconstructSettings}</span>
+        <Slider
+          label={collageStrings.deconstructFrameTolerance}
+          value={options.minFrameArea ?? 0.02}
+          min={0.005}
+          max={0.15}
+          step={0.005}
+          display={`${Math.round((options.minFrameArea ?? 0.02) * 1000)}‰`}
+          onChange={(v) => onOptionsChange({ ...options, minFrameArea: v })}
+        />
+        <Slider
+          label={collageStrings.deconstructOcclusionFeather}
+          value={options.occlusionFeather ?? 2}
+          min={0}
+          max={10}
+          step={0.5}
+          display={`${options.occlusionFeather ?? 2} px`}
+          onChange={(v) => onOptionsChange({ ...options, occlusionFeather: v })}
+        />
+        <Slider
+          label={collageStrings.deconstructTextThreshold}
+          value={options.paperLuminanceThreshold ?? 200}
+          min={100}
+          max={240}
+          step={5}
+          display={`${options.paperLuminanceThreshold ?? 200}`}
+          onChange={(v) => onOptionsChange({ ...options, paperLuminanceThreshold: v })}
+        />
+        <Switch
+          label={collageStrings.deconstructAdvancedSeg}
+          checked={options.useAdvancedSegmentation ?? true}
+          onChange={(v) => onOptionsChange({ ...options, useAdvancedSegmentation: v })}
+        />
+        <Switch
+          label={collageStrings.deconstructTextDetect}
+          checked={options.useTextDetection ?? true}
+          onChange={(v) => onOptionsChange({ ...options, useTextDetection: v })}
+        />
+      </div>
+
+      {/* ── Start button: the studio opens with or without a chosen image ── */}
+      <button type="button" className={styles.primary} onClick={() => onOpenChange(true)}>
+        <Scissors size={14} />
+        {collageStrings.deconstructStart}
+      </button>
+
+      {/* ── Full-screen modal overlay ── */}
+      {open ? (
+        <div className={styles.deconstructOverlay}>
+          <div className={styles.deconstructModal}>
+            <button
+              type="button"
+              className={styles.deconstructClose}
+              onClick={() => onOpenChange(false)}
+              aria-label={collageStrings.deconstructClose}
+            >
+              ✕
+            </button>
+            <Suspense fallback={<div className={styles.deconstructLoading}>{collageStrings.deconstructLoading}</div>}>
+              <DeconstructStudio
+                editor={editor}
+                initialImageUrl={imageUrl}
+                pageWidth={pageSize.width}
+                pageHeight={pageSize.height}
+                options={options}
+                onClose={() => onOpenChange(false)}
+              />
+            </Suspense>
+          </div>
+        </div>
+      ) : null}
+    </div>
+  )
+}
+
 /** The Smart Collage panel: layout, photos, mat/frame, Arabic type and transparent stickers for one collage. */
 export function CollagePanel(_props: PanelProps) {
   const editor = useEditor()
@@ -108,11 +268,19 @@ export function CollagePanel(_props: PanelProps) {
     useTextDetection: true,
   })
 
-  const fileInputRef = useRef<HTMLInputElement>(null)
+  /** The object URL currently shown as the chosen template, so it can be revoked when it is replaced or on unmount. */
+  const uploadedUrlRef = useRef<string | null>(null)
+  useEffect(() => () => {
+    if (uploadedUrlRef.current) URL.revokeObjectURL(uploadedUrlRef.current)
+  }, [])
+
   const handleFile = (file: File) => {
     const url = URL.createObjectURL(file)
+    const previous = uploadedUrlRef.current
+    uploadedUrlRef.current = url
     setUploadedImageUrl(url)
     setDeconstructOpen(false)
+    if (previous) URL.revokeObjectURL(previous)
   }
 
   const picked = pickedId && groups.some((group) => group.id === pickedId) ? pickedId : null
@@ -166,180 +334,69 @@ export function CollagePanel(_props: PanelProps) {
   }
 
   if (!active) {
-    // ── Empty page: show Deconstruct tab independently ──────────────────────
-    if (tab === 'deconstruct') {
-      return (
-        <div className={styles.panel} data-testid="collage-panel">
-          <div className={styles.scroll}>
-            <div className={styles.deconstructTab}>
-              {/* ── Upload dropzone ── */}
-              <div
-                className={styles.dropzone}
-                onClick={() => fileInputRef.current?.click()}
-                onDragOver={(e) => { e.preventDefault(); e.currentTarget.classList.add(styles.dropzoneDragOver) }}
-                onDragLeave={(e) => e.currentTarget.classList.remove(styles.dropzoneDragOver)}
-                onDrop={(e) => {
-                  e.preventDefault()
-                  e.currentTarget.classList.remove(styles.dropzoneDragOver)
-                  const file = e.dataTransfer.files[0]
-                  if (file) handleFile(file)
-                }}
-                role="button"
-                tabIndex={0}
-                aria-label={collageStrings.deconstructUpload}
-                onKeyDown={(e) => e.key === 'Enter' && fileInputRef.current?.click()}
-              >
-                <input
-                  ref={fileInputRef}
-                  type="file"
-                  accept="image/*"
-                  style={{ display: 'none' }}
-                  onChange={(e) => {
-                    const file = e.target.files?.[0]
-                    if (file) handleFile(file)
-                    e.target.value = ''
-                  }}
-                />
-                {uploadedImageUrl ? (
-                  <img src={uploadedImageUrl} alt="Template preview" className={styles.dropzonePreview} />
-                ) : (
-                  <>
-                    <Upload size={32} className={styles.dropzoneIcon} />
-                    <p className={styles.dropzoneLabel}>{collageStrings.deconstructUpload}</p>
-                    <p className={styles.dropzoneHint}>{collageStrings.deconstructUploadHint}</p>
-                  </>
-                )}
-              </div>
-
-              {/* ── Settings ── */}
-              <div className={styles.deconstructSettings}>
-                <span className={styles.sectionTitle}>{collageStrings.deconstructSettings}</span>
-                <Slider
-                  label={collageStrings.deconstructFrameTolerance}
-                  value={deconstructOptions.minFrameArea ?? 0.02}
-                  min={0.005}
-                  max={0.15}
-                  step={0.005}
-                  display={`${Math.round((deconstructOptions.minFrameArea ?? 0.02) * 1000)}‰`}
-                  onChange={(v) => setDeconstructOptions((o) => ({ ...o, minFrameArea: v }))}
-                />
-                <Slider
-                  label={collageStrings.deconstructOcclusionFeather}
-                  value={deconstructOptions.occlusionFeather ?? 2}
-                  min={0}
-                  max={10}
-                  step={0.5}
-                  display={`${deconstructOptions.occlusionFeather ?? 2} px`}
-                  onChange={(v) => setDeconstructOptions((o) => ({ ...o, occlusionFeather: v }))}
-                />
-                <Slider
-                  label={collageStrings.deconstructTextThreshold}
-                  value={deconstructOptions.paperLuminanceThreshold ?? 200}
-                  min={100}
-                  max={240}
-                  step={5}
-                  display={`${deconstructOptions.paperLuminanceThreshold ?? 200}`}
-                  onChange={(v) => setDeconstructOptions((o) => ({ ...o, paperLuminanceThreshold: v }))}
-                />
-                <Switch
-                  label={collageStrings.deconstructAdvancedSeg}
-                  checked={deconstructOptions.useAdvancedSegmentation ?? true}
-                  onChange={(v) => setDeconstructOptions((o) => ({ ...o, useAdvancedSegmentation: v }))}
-                />
-                <Switch
-                  label={collageStrings.deconstructTextDetect}
-                  checked={deconstructOptions.useTextDetection ?? true}
-                  onChange={(v) => setDeconstructOptions((o) => ({ ...o, useTextDetection: v }))}
-                />
-              </div>
-
-              {/* ── Start button ── */}
-              <button
-                type="button"
-                className={styles.primary}
-                disabled={!uploadedImageUrl}
-                onClick={() => {
-                  if (!uploadedImageUrl) return
-                  setDeconstructOpen(true)
-                }}
-              >
-                <Scissors size={14} />
-                {collageStrings.deconstructStart}
-              </button>
-
-              {/* ── Full-screen modal overlay ── */}
-              {deconstructOpen && uploadedImageUrl && (
-                <div className={styles.deconstructOverlay}>
-                  <div className={styles.deconstructModal}>
-                    <button
-                      type="button"
-                      className={styles.deconstructClose}
-                      onClick={() => setDeconstructOpen(false)}
-                      aria-label={collageStrings.deconstructClose}
-                    >
-                      ✕
-                    </button>
-                    <Suspense fallback={<div className={styles.deconstructLoading}>{collageStrings.deconstructLoading}</div>}>
-                      <DeconstructStudio
-                        imageUrl={uploadedImageUrl}
-                        options={deconstructOptions}
-                        editor={editor}
-                        onBuild={() => setDeconstructOpen(false)}
-                        onClose={() => setDeconstructOpen(false)}
-                      />
-                    </Suspense>
-                  </div>
-                </div>
-              )}
-            </div>
-          </div>
-        </div>
-      )
-    }
-
-    // ── Normal empty-page intro ─────────────────────────────────────────────
+    // ── Empty page: the tab strip is rendered here too, so every tab (Deconstruct included) stays reachable ──
     return (
       <div className={styles.panel} data-testid="collage-panel">
+        <TabStrip tab={tab} onSelect={setTab} />
         <div className={styles.scroll}>
-          <div className={styles.intro}>
-            <span className={styles.studioMark}>STUDIO</span>
-            <h3>{collageStrings.intro}</h3>
-            <p>{collageStrings.introHint}</p>
-          </div>
-          <div className={styles.createLabel}>{collageStrings.template}</div>
-          <div className={styles.templateGrid}>
-            {COLLAGE_LAYOUTS.map((layout) => (
-              <button
-                key={layout}
-                type="button"
-                className={`${styles.templateCard} ${creating === layout ? styles.templateBusy : ''}`}
-                onClick={() => void create(layout)}
-                disabled={busy}
-                aria-busy={creating === layout || undefined}
-              >
-                <TemplateThumb layout={layout} />
-                <span>{collageStrings.templates[layout]}</span>
-              </button>
-            ))}
-          </div>
-          <button type="button" className={`${styles.primary} ${styles.wide}`} onClick={() => void create('grid')} disabled={busy}>
-            {collageStrings.create}
-          </button>
-          <p className={styles.hint}>{collageStrings.createHint}</p>
-
-          <div className={styles.sectionTitle}>{collageStrings.ideas}</div>
-          <Suspense fallback={null}>
-            <CollageSmart
-              activeId={null}
-              count={4}
-              page={pageSize}
-              mode="layouts"
-              onPicked={(id) => {
-                setPickedId(id)
-                setTab('layout')
-              }}
+          {tab === 'deconstruct' ? (
+            <DeconstructTab
+              editor={editor}
+              pageSize={pageSize}
+              imageUrl={uploadedImageUrl}
+              options={deconstructOptions}
+              open={deconstructOpen}
+              onPickFile={handleFile}
+              onOptionsChange={setDeconstructOptions}
+              onOpenChange={setDeconstructOpen}
             />
-          </Suspense>
+          ) : tab === 'stickers' ? (
+            /* Stickers are inserted straight onto the page, so they need no collage to work. */
+            <StickersTab busy={busy} setBusy={setBusy} />
+          ) : (
+            <>
+              {/* The layout/templates intro for an empty page, unchanged. */}
+              <div className={styles.intro}>
+                <span className={styles.studioMark}>STUDIO</span>
+                <h3>{collageStrings.intro}</h3>
+                <p>{collageStrings.introHint}</p>
+              </div>
+              <div className={styles.createLabel}>{collageStrings.template}</div>
+              <div className={styles.templateGrid}>
+                {COLLAGE_LAYOUTS.map((layout) => (
+                  <button
+                    key={layout}
+                    type="button"
+                    className={`${styles.templateCard} ${creating === layout ? styles.templateBusy : ''}`}
+                    onClick={() => void create(layout)}
+                    disabled={busy}
+                    aria-busy={creating === layout || undefined}
+                  >
+                    <TemplateThumb layout={layout} />
+                    <span>{collageStrings.templates[layout]}</span>
+                  </button>
+                ))}
+              </div>
+              <button type="button" className={`${styles.primary} ${styles.wide}`} onClick={() => void create('grid')} disabled={busy}>
+                {collageStrings.create}
+              </button>
+              <p className={styles.hint}>{collageStrings.createHint}</p>
+
+              <div className={styles.sectionTitle}>{collageStrings.ideas}</div>
+              <Suspense fallback={null}>
+                <CollageSmart
+                  activeId={null}
+                  count={4}
+                  page={pageSize}
+                  mode="layouts"
+                  onPicked={(id) => {
+                    setPickedId(id)
+                    setTab('layout')
+                  }}
+                />
+              </Suspense>
+            </>
+          )}
         </div>
       </div>
     )
@@ -355,14 +412,7 @@ export function CollagePanel(_props: PanelProps) {
         <span className={styles.badge}>{active.slots.length} {collageStrings.slots}</span>
       </div>
 
-      <div className={styles.tabs} role="tablist" aria-label={collageStrings.title}>
-        {TABS.map(({ id, label, icon: Icon }) => (
-          <button key={id} type="button" role="tab" className={styles.tab} aria-selected={tab === id} onClick={() => setTab(id)}>
-            <Icon size={14} aria-hidden="true" />
-            <span>{label}</span>
-          </button>
-        ))}
-      </div>
+      <TabStrip tab={tab} onSelect={setTab} />
       <div className={styles.scroll}>
         {tab === 'layout' ? (
           <>
@@ -605,127 +655,16 @@ export function CollagePanel(_props: PanelProps) {
         {tab === 'stickers' ? <StickersTab busy={busy} setBusy={setBusy} /> : null}
 
         {tab === 'deconstruct' ? (
-          <div className={styles.deconstructTab}>
-            {/* ── Upload dropzone ── */}
-            <div
-              className={styles.dropzone}
-              onClick={() => fileInputRef.current?.click()}
-              onDragOver={(e) => { e.preventDefault(); e.currentTarget.classList.add(styles.dropzoneDragOver) }}
-              onDragLeave={(e) => e.currentTarget.classList.remove(styles.dropzoneDragOver)}
-              onDrop={(e) => {
-                e.preventDefault()
-                e.currentTarget.classList.remove(styles.dropzoneDragOver)
-                const file = e.dataTransfer.files[0]
-                if (file) handleFile(file)
-              }}
-              role="button"
-              tabIndex={0}
-              aria-label={collageStrings.deconstructUpload}
-              onKeyDown={(e) => e.key === 'Enter' && fileInputRef.current?.click()}
-            >
-              <input
-                ref={fileInputRef}
-                type="file"
-                accept="image/*"
-                style={{ display: 'none' }}
-                onChange={(e) => {
-                  const file = e.target.files?.[0]
-                  if (file) handleFile(file)
-                  e.target.value = ''
-                }}
-              />
-              {uploadedImageUrl ? (
-                <img src={uploadedImageUrl} alt="Template preview" className={styles.dropzonePreview} />
-              ) : (
-                <>
-                  <Upload size={32} className={styles.dropzoneIcon} />
-                  <p className={styles.dropzoneLabel}>{collageStrings.deconstructUpload}</p>
-                  <p className={styles.dropzoneHint}>{collageStrings.deconstructUploadHint}</p>
-                </>
-              )}
-            </div>
-
-            {/* ── Settings ── */}
-            <div className={styles.deconstructSettings}>
-              <span className={styles.sectionTitle}>{collageStrings.deconstructSettings}</span>
-              <Slider
-                label={collageStrings.deconstructFrameTolerance}
-                value={deconstructOptions.minFrameArea ?? 0.02}
-                min={0.005}
-                max={0.15}
-                step={0.005}
-                display={`${Math.round((deconstructOptions.minFrameArea ?? 0.02) * 1000)}‰`}
-                onChange={(v) => setDeconstructOptions((o) => ({ ...o, minFrameArea: v }))}
-              />
-              <Slider
-                label={collageStrings.deconstructOcclusionFeather}
-                value={deconstructOptions.occlusionFeather ?? 2}
-                min={0}
-                max={10}
-                step={0.5}
-                display={`${deconstructOptions.occlusionFeather ?? 2} px`}
-                onChange={(v) => setDeconstructOptions((o) => ({ ...o, occlusionFeather: v }))}
-              />
-              <Slider
-                label={collageStrings.deconstructTextThreshold}
-                value={deconstructOptions.paperLuminanceThreshold ?? 200}
-                min={100}
-                max={240}
-                step={5}
-                display={`${deconstructOptions.paperLuminanceThreshold ?? 200}`}
-                onChange={(v) => setDeconstructOptions((o) => ({ ...o, paperLuminanceThreshold: v }))}
-              />
-              <Switch
-                label={collageStrings.deconstructAdvancedSeg}
-                checked={deconstructOptions.useAdvancedSegmentation ?? true}
-                onChange={(v) => setDeconstructOptions((o) => ({ ...o, useAdvancedSegmentation: v }))}
-              />
-              <Switch
-                label={collageStrings.deconstructTextDetect}
-                checked={deconstructOptions.useTextDetection ?? true}
-                onChange={(v) => setDeconstructOptions((o) => ({ ...o, useTextDetection: v }))}
-              />
-            </div>
-
-            {/* ── Start button ── */}
-            <button
-              type="button"
-              className={styles.primary}
-              disabled={!uploadedImageUrl}
-              onClick={() => {
-                if (!uploadedImageUrl) return
-                setDeconstructOpen(true)
-              }}
-            >
-              <Scissors size={14} />
-              {collageStrings.deconstructStart}
-            </button>
-
-            {/* ── Full-screen modal overlay ── */}
-            {deconstructOpen && uploadedImageUrl && (
-              <div className={styles.deconstructOverlay}>
-                <div className={styles.deconstructModal}>
-                  <button
-                    type="button"
-                    className={styles.deconstructClose}
-                    onClick={() => setDeconstructOpen(false)}
-                    aria-label={collageStrings.deconstructClose}
-                  >
-                    ✕
-                  </button>
-                  <Suspense fallback={<div className={styles.deconstructLoading}>{collageStrings.deconstructLoading}</div>}>
-                    <DeconstructStudio
-                      imageUrl={uploadedImageUrl}
-                      options={deconstructOptions}
-                      editor={editor}
-                      onBuild={() => setDeconstructOpen(false)}
-                      onClose={() => setDeconstructOpen(false)}
-                    />
-                  </Suspense>
-                </div>
-              </div>
-            )}
-          </div>
+          <DeconstructTab
+            editor={editor}
+            pageSize={pageSize}
+            imageUrl={uploadedImageUrl}
+            options={deconstructOptions}
+            open={deconstructOpen}
+            onPickFile={handleFile}
+            onOptionsChange={setDeconstructOptions}
+            onOpenChange={setDeconstructOpen}
+          />
         ) : null}
       </div>
     </div>
