@@ -148,6 +148,7 @@ export default function CameraRawStudioModal({ onClose }: { onClose: () => void 
   const [jpegQuality, setJpegQuality] = useState(0.92)
   const [hasAlpha, setHasAlpha] = useState(false)
   const [busy, setBusy] = useState<string | null>(null)
+  const [previewSize, setPreviewSize] = useState<{ w: number; h: number } | null>(null)
 
   // Pristine full-res session source + downscaled GPU source.
   const pristineRef = useRef<HTMLCanvasElement | null>(null)
@@ -357,6 +358,8 @@ export default function CameraRawStudioModal({ onClose }: { onClose: () => void 
             ectx.strokeRect(expandedRect.offsetX, expandedRect.offsetY, originalW, originalH)
           }
         }
+        // The zoom controls size the canvas in CSS pixels — record the rendered buffer size.
+        setPreviewSize((p) => (p && p.w === pixels.width && p.h === pixels.height ? p : { w: pixels.width, h: pixels.height }))
       })
     }, 80)
     return () => {
@@ -371,16 +374,24 @@ export default function CameraRawStudioModal({ onClose }: { onClose: () => void 
   }, [])
 
   // ---------------------------------------------------------------
-  // Zoom (wheel + buttons); pan via scroll in the viewer container.
+  // Zoom (Ctrl/⌘ + wheel, plus header buttons); pan via native scroll.
+  // Numerical zoom sizes the canvas in CSS pixels so the scroll container grows
+  // with it — `transform: scale` would only clip visually without ever scrolling.
   // ---------------------------------------------------------------
-  const onWheelZoom = useCallback((e: WheelEvent): void => {
-    e.preventDefault()
+  const zoomTo = useCallback((factor: number | 'fit'): void => {
     setZoom((z) => {
       const base = z === 'fit' ? 1 : z
-      const next = Math.min(8, Math.max(0.1, base * (e.deltaY < 0 ? 1.15 : 1 / 1.15)))
+      if (factor === 'fit') return 'fit'
+      const next = Math.min(8, Math.max(0.1, base * factor))
       return Math.abs(next - 1) < 0.06 ? 1 : next
     })
   }, [])
+
+  const onWheelZoom = useCallback((e: WheelEvent): void => {
+    if (!e.ctrlKey && !e.metaKey) return // plain wheel scrolls the preview like anywhere else
+    e.preventDefault()
+    zoomTo(e.deltaY < 0 ? 1.15 : 1 / 1.15)
+  }, [zoomTo])
   useEffect(() => {
     const viewer = viewerRef.current
     if (!viewer) return
@@ -580,8 +591,13 @@ export default function CameraRawStudioModal({ onClose }: { onClose: () => void 
                 {neural.done && <> → {neural.outW}×{neural.outH}</>}
               </span>
             )}
-            <button style={BTN.dim} onClick={() => setZoom('fit')}>ملء الشاشة</button>
+            <button style={BTN.dim} onClick={() => zoomTo(1 / 1.25)} title="تصغير">−</button>
+            <span style={{ fontSize: 11, color: 'var(--ed-text-dim)', minWidth: 40, textAlign: 'center' }}>
+              {zoom === 'fit' ? 'ملء' : `${Math.round(zoom * 100)}%`}
+            </span>
+            <button style={BTN.dim} onClick={() => zoomTo(1.25)} title="تكبير">+</button>
             <button style={BTN.dim} onClick={() => setZoom(1)}>100%</button>
+            <button style={BTN.dim} onClick={() => setZoom('fit')}>ملء المعاينة</button>
             <button style={compare ? BTN.active : BTN.dim} onClick={() => setCompare((c) => !c)}>قبل / بعد</button>
             <button style={BTN.dim} aria-label="إغلاق" onClick={onClose}><X size={14} /></button>
           </div>
@@ -590,11 +606,18 @@ export default function CameraRawStudioModal({ onClose }: { onClose: () => void 
             ref={viewerRef}
             style={{ flex: 1, overflow: 'auto', display: 'grid', placeItems: 'center', padding: 24, background: 'var(--ed-surface)', ...checkerStyle() }}
           >
-            <div style={{ position: 'relative', transform: zoom === 'fit' ? undefined : `scale(${zoom})`, transformOrigin: 'center center', width: zoom === 'fit' ? '100%' : undefined, display: 'flex', justifyContent: 'center' }}>
-              <div style={{ position: 'relative', display: zoom === 'fit' ? 'block' : undefined, maxWidth: '100%' }} data-studio-split-host>
+            <div style={{ position: 'relative', display: 'flex', justifyContent: 'center' }}>
+              <div
+                style={{ position: 'relative', ...(zoom === 'fit' ? { maxWidth: '100%' } : { width: previewSize?.w ? `${previewSize.w * zoom}px` : undefined }) }}
+                data-studio-split-host
+              >
                 <canvas
                   ref={processedDisplayRef}
-                  style={{ maxWidth: '100%', maxHeight: '70vh', borderRadius: 8, border: '1px solid var(--ed-border)', boxShadow: '0 8px 30px rgba(0,0,0,0.35)', background: 'var(--ed-surface-2)', display: 'block' }}
+                  style={
+                    zoom === 'fit'
+                      ? { maxWidth: '100%', maxHeight: '70vh', borderRadius: 8, border: '1px solid var(--ed-border)', boxShadow: '0 8px 30px rgba(0,0,0,0.35)', background: 'var(--ed-surface-2)', display: 'block' }
+                      : { width: `${previewSize?.w ? previewSize.w * zoom : 300}px`, borderRadius: 8, border: '1px solid var(--ed-border)', boxShadow: '0 8px 30px rgba(0,0,0,0.35)', background: 'var(--ed-surface-2)', display: 'block', imageRendering: zoom >= 2 ? 'pixelated' : undefined }
+                  }
                   onDoubleClick={() => setZoom('fit')}
                 />
                 <canvas
