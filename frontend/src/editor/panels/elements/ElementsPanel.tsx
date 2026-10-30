@@ -246,10 +246,14 @@ export function ElementsPanel() {
     }
   }, [editor])
 
-  const insertPattern = useCallback(async (pattern: PatternDefinition) => {
+  const insertPattern = useCallback(async (pattern: PatternDefinition, fillPage = false) => {
     try {
-      const svg = applyPatternToRect(pattern.id, 800, 600, patternOptions)
-      await editor.insert.svgElement(svg, `pattern:${pattern.id}`, pattern.name)
+      const page = editor.state.doc.pages.find(p => p.id === editor.state.activePageId)
+      const pw = page?.width ?? 800, ph = page?.height ?? 600
+      const w = fillPage ? pw : 800, h = fillPage ? ph : 600
+      const svg = applyPatternToRect(pattern.id, w, h, patternOptions)
+      await editor.insert.svgElement(svg, `pattern:${pattern.id}`, pattern.name, fillPage ? { x: w / 2, y: h / 2 } : undefined)
+      editor.toast(fillPage ? `Applied "${pattern.name}" to full design` : `Inserted "${pattern.name}"`, 'success')
     } catch {
       editor.toast('Could not insert pattern', 'error')
     }
@@ -578,7 +582,7 @@ export function ElementsPanel() {
                   <div key={p.id} className={styles.carouselItem} onClick={() => { setCategory('patterns'); setSelectedPattern(p) }}>
                     <div style={{ width: 68, height: 68, borderRadius: 8, background: 'var(--ed-surface-2)', position: 'relative' }}>
                       <svg width="68" height="68" viewBox="0 0 68 68">
-                        <defs>{patternDefPreview(p, `thumb-${p.id}`)}</defs>
+                        <defs dangerouslySetInnerHTML={{ __html: patternDefPreview(p, `thumb-${p.id}`) }} />
                         <rect width="68" height="68" fill={`url(#custom-pattern-thumb-${p.id})`} />
                       </svg>
                     </div>
@@ -692,18 +696,31 @@ export function ElementsPanel() {
             {/* Patterns Grid */}
             {selectedCategory === 'patterns' && (
               <div style={{ marginBottom: 16 }}>
-                <h4 style={{ margin: '8px 0', fontSize: 13, fontWeight: 600 }}>Seamless Patterns</h4>
+                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 8 }}>
+                  <h4 style={{ margin: 0, fontSize: 13, fontWeight: 600 }}>Seamless Patterns</h4>
+                  <label style={{ cursor: 'pointer', fontSize: 11, padding: '4px 8px', borderRadius: 6, background: 'var(--ed-accent)', color: '#fff', border: 'none' }}>
+                    <input type="file" accept="image/*" style={{ display: 'none' }} onChange={e => {
+                      const files = e.target.files
+                      if (!files || files.length === 0) return
+                      void editor.insert.imageFiles(Array.from(files))
+                      e.target.value = ''
+                    }} />
+                    Upload from device
+                  </label>
+                </div>
                 <div className={styles.grid} style={{ gridTemplateColumns: 'repeat(auto-fill, minmax(120px, 1fr))' }}>
                   {PATTERN_DEFINITIONS.map(p => (
                     <div
                       key={p.id}
                       className={styles.gridItem}
-                      onClick={() => setSelectedPattern(p)}
+                      onClick={() => { setSelectedPattern(p); void insertPattern(p, true) }}
+                      data-testid={`pattern-card-${p.id}`}
+                      title={`Apply ${p.name}`}
                       style={{ cursor: 'pointer', aspectRatio: '1' }}
                     >
                       <div style={{ width: '100%', height: '100%', borderRadius: 8, background: 'var(--ed-surface-2)', position: 'relative' }}>
                         <svg width="100%" height="100%" viewBox="0 0 100 100" preserveAspectRatio="none">
-                          <defs>{patternDefPreview(p, `grid-${p.id}`)}</defs>
+                          <defs dangerouslySetInnerHTML={{ __html: patternDefPreview(p, `grid-${p.id}`) }} />
                           <rect width="100" height="100" fill={`url(#custom-pattern-grid-${p.id})`} />
                         </svg>
                       </div>

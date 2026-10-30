@@ -1,7 +1,7 @@
 import { useState, useCallback } from 'react'
-import { IText } from 'fabric'
 import { Wand2, Copy, Download, SlidersHorizontal, Zap, Square, Box, Diamond, BadgePercent, GitCompare, Circle, Sparkles } from 'lucide-react'
-import { TEXT_EFFECT_PRESETS, applyTextEffect, type TextEffectPreset, generateCurvedTextSVG, type CurvedTextOptions } from '@/lib/api/textEffects'
+import { TEXT_EFFECT_PRESETS, type TextEffectPreset, type CurvedTextOptions } from '@/lib/api/textEffects'
+import type { ObjectEffects } from '@/types/document'
 import { useEditor } from '../../context'
 import styles from './ElementsPanel.module.css'
 
@@ -16,6 +16,46 @@ const CATEGORY_ICONS: Record<string, React.ReactNode> = {
   glitch: <GitCompare size={14} />,
   shadow: <Circle size={14} />,
 }
+
+/**
+ * The presets as real canvas effects. Each one maps onto the engine's declarative `effects` object
+ * (shadow / outline / glow / background), so it renders, exports and undoes like any other style edit.
+ */
+const EFFECT_PATCHES: Record<string, (color: string) => ObjectEffects> = {
+  'neon-glow': (color) => ({ glow: { color, blur: 26 } }),
+  'hollow-outline': (color) => ({ outline: { color, width: 3 } }),
+  splice: (color) => ({
+    outline: { color, width: 2 },
+    shadow: { color: '#f472b6', blur: 0, offsetX: 6, offsetY: 6 },
+  }),
+  'retro-3d': () => ({
+    outline: { color: '#111827', width: 1 },
+    shadow: { color: '#f59e0b', blur: 0, offsetX: 6, offsetY: 6 },
+  }),
+  'gold-foil': () => ({ shadow: { color: '#b45309', blur: 6, offsetX: 2, offsetY: 3 } }),
+  'sticker-text': () => ({
+    outline: { color: '#ffffff', width: 6 },
+    shadow: { color: '#00000055', blur: 8, offsetX: 0, offsetY: 4 },
+  }),
+  'pill-badge': () => ({ background: { color: '#111827' } }),
+  'embroidered-patch': () => ({
+    outline: { color: '#1f2937', width: 3 },
+    shadow: { color: '#00000040', blur: 4, offsetX: 1, offsetY: 2 },
+  }),
+  glitch: () => ({ shadow: { color: '#22d3ee', blur: 0, offsetX: 5, offsetY: 0 } }),
+  lift: () => ({ shadow: { color: '#00000059', blur: 18, offsetX: 0, offsetY: 10 } }),
+  echo: () => ({ shadow: { color: '#f472b6', blur: 0, offsetX: 8, offsetY: 8 } }),
+  chrome: () => ({ shadow: { color: '#94a3b8', blur: 2, offsetX: 2, offsetY: 2 } }),
+  'paper-cut': () => ({ shadow: { color: '#00000033', blur: 4, offsetX: 2, offsetY: 4 } }),
+}
+
+/** Clears every effect first so switching presets never leaves the previous one stacked underneath. */
+function effectPatch(preset: TextEffectPreset, color: string): ObjectEffects {
+  const own = EFFECT_PATCHES[preset.id]?.(color) ?? { shadow: { color: '#00000040', blur: 12, offsetX: 0, offsetY: 6 } }
+  return { shadow: undefined, outline: undefined, glow: undefined, background: undefined, ...own }
+}
+
+const isText = (o: { type?: string }): boolean => o.type === 'textbox' || o.type === 'i-text' || o.type === 'text'
 
 export function TextEffectsPanel() {
   const editor = useEditor()
@@ -33,54 +73,43 @@ export function TextEffectsPanel() {
   const [waveFrequency, setWaveFrequency] = useState(0.02)
   const [skewX, setSkewX] = useState(0)
   const [skewY, setSkewY] = useState(0)
-  
+
+  /** Applies to the selected text, or drops a fresh text layer first so a click is never a no-op. */
   const handleApplyEffect = useCallback(async (preset: TextEffectPreset) => {
-    const selection = editor.selectedObjects().filter((obj): obj is IText => obj instanceof IText)
-    if (selection.length === 0) {
-      editor.toast('Select text elements first', 'info')
-      return
-    }
-    
-    // Apply to all selected text objects
-    for (const obj of selection) {
-      obj.set('fill', textColor)
-      applyTextEffect(obj, preset, textColor)
-    }
-    editor.refreshSelection()
-    editor.toast(`Applied "${preset.name}" to ${selection.length} text element(s)`, 'success')
+    setSelectedEffect(preset)
+    if (!editor.selectedObjects().some(isText)) await editor.insert.text('body')
+    editor.style.text({ fill: { type: 'solid', color: textColor } })
+    editor.style.setEffects(effectPatch(preset, textColor))
+    editor.toast(`Applied "${preset.name}"`, 'success')
   }, [editor, textColor])
-  
+
   const handleApplyCurve = useCallback(async () => {
-    const selection = editor.selectedObjects().filter((obj): obj is IText => obj instanceof IText)
-    if (selection.length === 0) {
-      editor.toast('Select text elements first', 'info')
-      return
+    if (!editor.selectedObjects().some(isText)) await editor.insert.text('body')
+    editor.style.setCurve(curve)
+    editor.style.text({ direction: direction === 'rtl' ? 'rtl' : 'ltr' })
+    editor.toast(`Applied curve (${curve > 0 ? '↑' : curve < 0 ? '↓' : '—'})${direction === 'rtl' ? ' · RTL' : ''}`, 'success')
+  }, [editor, curve, direction])
+
+  const effectSvg = useCallback((preset: TextEffectPreset) => preset.generateFilter(textColor), [textColor])
+
+  const copyEffect = useCallback(async (preset: TextEffectPreset) => {
+    try {
+      await navigator.clipboard.writeText(effectSvg(preset))
+      editor.toast(`Copied "${preset.name}" filter SVG`, 'success')
+    } catch {
+      editor.toast('Could not copy the filter', 'error')
     }
-    
-    const curveOptions: CurvedTextOptions = {
-      curve,
-      warp,
-      direction,
-      waveAmplitude,
-      waveFrequency,
-      skewX,
-      skewY,
-    }
-    
-    for (const obj of selection) {
-      generateCurvedTextSVG(
-        obj.text,
-        curveOptions,
-        obj.fontFamily,
-        obj.fontSize,
-        typeof obj.fill === 'string' ? obj.fill : textColor,
-        `${obj.fontWeight ?? '400'}`
-      )
-      // Replace text object with curved text group
-      // This would need Fabric SVG parsing
-    }
-    editor.toast(`Applied curve (${curve > 0 ? '↑' : curve < 0 ? '↓' : '—'}) to ${selection.length} text element(s)`, 'success')
-  }, [editor, curve, warp, direction, waveAmplitude, waveFrequency, skewX, skewY, textColor])
+  }, [editor, effectSvg])
+
+  const downloadEffect = useCallback((preset: TextEffectPreset) => {
+    const blob = new Blob([effectSvg(preset)], { type: 'image/svg+xml' })
+    const url = URL.createObjectURL(blob)
+    const a = document.createElement('a')
+    a.href = url
+    a.download = `text-effect-${preset.id}.svg`
+    a.click()
+    URL.revokeObjectURL(url)
+  }, [effectSvg])
   
   return (
     <div className={styles.textEffectsPanel} style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
@@ -112,7 +141,12 @@ export function TextEffectsPanel() {
           <div
             key={preset.id}
             className={`${styles.effectCard} ${selectedEffect?.id === preset.id ? styles.selected : ''}`}
-            onClick={() => setSelectedEffect(preset)}
+            onClick={() => { void handleApplyEffect(preset) }}
+            data-testid={`text-effect-${preset.id}`}
+            role="button"
+            tabIndex={0}
+            aria-label={`Apply ${preset.name}`}
+            onKeyDown={e => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); void handleApplyEffect(preset) } }}
             style={{
               padding: 12,
               background: 'var(--ed-surface-2)',
@@ -173,13 +207,13 @@ export function TextEffectsPanel() {
           </div>
           
           <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
-            <button onClick={() => handleApplyEffect(selectedEffect)} className={styles.primaryBtn} style={{ display: 'inline-flex', alignItems: 'center', gap: 6 }}>
+            <button onClick={() => { void handleApplyEffect(selectedEffect) }} className={styles.primaryBtn} style={{ display: 'inline-flex', alignItems: 'center', gap: 6 }}>
               <Wand2 size={14} /> Apply to Selection
             </button>
-            <button onClick={() => {}} className={styles.actionBtn} style={{ display: 'inline-flex', alignItems: 'center', gap: 6 }}>
+            <button onClick={() => { void copyEffect(selectedEffect) }} className={styles.actionBtn} style={{ display: 'inline-flex', alignItems: 'center', gap: 6 }}>
               <Copy size={14} /> Copy Filter SVG
             </button>
-            <button onClick={() => {}} className={styles.actionBtn} style={{ display: 'inline-flex', alignItems: 'center', gap: 6 }}>
+            <button onClick={() => downloadEffect(selectedEffect)} className={styles.actionBtn} style={{ display: 'inline-flex', alignItems: 'center', gap: 6 }}>
               <Download size={14} /> Download Filter
             </button>
           </div>
@@ -284,7 +318,7 @@ export function TextEffectsPanel() {
           <button onClick={handleApplyCurve} className={styles.primaryBtn} style={{ display: 'inline-flex', alignItems: 'center', gap: 6 }}>
             <SlidersHorizontal size={14} /> Apply Curve to Selection
           </button>
-          <button onClick={() => { setCurve(0); setWarp('none') }} className={styles.actionBtn} style={{ display: 'inline-flex', alignItems: 'center', gap: 6 }}>
+          <button onClick={() => { setCurve(0); setWarp('none'); editor.style.setCurve(0) }} className={styles.actionBtn} style={{ display: 'inline-flex', alignItems: 'center', gap: 6 }}>
             <Zap size={14} /> Reset
           </button>
         </div>

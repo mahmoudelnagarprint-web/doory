@@ -115,7 +115,6 @@ export default function DeconstructStudioModal({
   const [frames, setFrames] = useState<RotatedFrame[]>([])
   const [result, setResult] = useState<DeconstructionResult | null>(null)
   const [error, setError] = useState<string>('')
-  const [pageSize] = useState({ width, height })
 
   // ── Draw image + overlays on canvas ────────────────────────────────────────
   const redrawCanvas = useCallback((img: HTMLImageElement, frms: RotatedFrame[]) => {

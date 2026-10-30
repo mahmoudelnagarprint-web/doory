@@ -747,18 +747,6 @@
   gap: 8px;
 }
 
-.toggleRow {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 8px;
-  padding: 4px 0;
-}
-.toggleRow .label {
-  color: var(--ed-text-dim);
-  font: 500 11px / 1 var(--font-sans);
-}
-
 /* ============================================
    Full-screen Deconstruct Modal Overlay
    ============================================ */

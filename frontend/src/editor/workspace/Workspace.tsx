@@ -405,7 +405,8 @@ export function Workspace({ stripOpen, onToggleStrip }: WorkspaceProps) {
         onDragLeave={() => setDropping(false)}
         onDrop={onDrop}
         onContextMenu={(e) => {
-          if (e.target === e.currentTarget) e.preventDefault()
+          e.preventDefault()
+          // Suppress native browser context menu everywhere inside workspace
         }}
       >
         <div className={styles.content} data-workspace-bg style={{ minWidth: `max(100%, ${layout.contentWidth}px)`, paddingTop: metrics.padding, paddingBottom: metrics.padding }}>

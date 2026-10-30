@@ -130,7 +130,12 @@ export function ColorKitSelector() {
           <div
             key={kit.id}
             className={`${styles.colorKitCard} ${selectedKit?.id === kit.id ? styles.selected : ''}`}
-            onClick={() => setSelectedKit(kit)}
+            onClick={() => { setSelectedKit(kit); void applyToPage(kit) }}
+            data-testid={`color-kit-${kit.id}`}
+            role="button"
+            tabIndex={0}
+            aria-label={`Apply ${kit.name} to the page background`}
+            onKeyDown={e => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); setSelectedKit(kit); void applyToPage(kit) } }}
             style={{
               borderRadius: 12,
               overflow: 'hidden',

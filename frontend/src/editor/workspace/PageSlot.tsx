@@ -76,7 +76,7 @@ export const PageSlot = memo(function PageSlot({ page, index, total, width, heig
   const label = page.name?.trim() || t.workspace.page(index + 1)
 
   return (
-    <section className={styles.slot} data-page-id={page.id} data-active={active || undefined} data-multi={total > 1 || undefined} style={{ height: headerHeight + height, marginBottom: gap }} aria-label={label}>
+    <section className={styles.slot} data-page-id={page.id} data-active={active || undefined} data-multi={total > 1 || undefined} style={{ height: headerHeight + height, marginBottom: gap }} aria-label={label} onContextMenu={(e) => e.preventDefault()}>
       <header className={styles.header} style={headerStyle(width, headerHeight)} hidden={headerHeight === 0}>
         <div className={styles.lead}>
           {renaming ? (

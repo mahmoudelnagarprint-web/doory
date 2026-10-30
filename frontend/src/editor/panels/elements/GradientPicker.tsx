@@ -1,6 +1,7 @@
-import { useState, useEffect, useCallback, Suspense, lazy } from 'react'
+import { useState, useEffect, useCallback, useRef, Suspense, lazy } from 'react'
 import { Download, Palette, Sun, RotateCcw, SlidersHorizontal } from 'lucide-react'
 import { fetchUIGradients, gradientToCSS, gradientToSVG, FALLBACK_GRADIENTS, type GradientDefinition } from '@/lib/api/gradients'
+import type { PageBackground } from '@/types/document'
 import { useEditor } from '../../context'
 import styles from './ElementsPanel.module.css'
 
@@ -15,6 +16,11 @@ export function GradientPicker() {
   const [type, setType] = useState<'linear' | 'radial'>('linear')
   const [searchQuery, setSearchQuery] = useState('')
   const [category, setCategory] = useState<'all' | 'warm' | 'cool' | 'neutral'>('all')
+  /** Gradient currently painted on the page background, so the angle/type controls update it live. */
+  const [applied, setApplied] = useState<{ id: string; pageId: string } | null>(null)
+  const activePageId = editor.state.activePageId
+  // A different page keeps its own background: the card only owns the page it was clicked on.
+  const appliedId = applied && applied.pageId === activePageId ? applied.id : null
   
   // Load gradients on mount
   useEffect(() => {
@@ -44,19 +50,35 @@ export function GradientPicker() {
     g.name.toLowerCase().includes(searchQuery.toLowerCase())
   )
   
-  const applyToCanvas = useCallback(async (gradient: GradientDefinition) => {
+  const lastApplied = useRef('')
+  const backgroundOf = useCallback((gradient: GradientDefinition): PageBackground => ({
+    type: 'gradient',
+    kind: type,
+    angle,
+    stops: gradientStops(gradient),
+  }), [type, angle])
+
+  const applyToCanvas = useCallback((gradient: GradientDefinition) => {
     try {
-      editor.pages.setBackground(editor.state.activePageId, {
-        type: 'gradient',
-        kind: type,
-        angle,
-        stops: gradientStops(gradient),
-      })
+      editor.pages.setBackground(activePageId, backgroundOf(gradient), `gradient:${gradient.id}`)
+      lastApplied.current = `${gradient.id}|${angle}|${type}|${activePageId}`
+      setApplied({ id: gradient.id, pageId: activePageId })
       editor.toast(`Applied "${gradient.name}" to canvas`, 'success')
     } catch {
       editor.toast('Failed to apply gradient', 'error')
     }
-  }, [editor, angle, type])
+  }, [editor, activePageId, backgroundOf, angle, type])
+
+  // The angle/type controls edit the gradient that is already on the page: repaint it live.
+  useEffect(() => {
+    if (!appliedId) return
+    const gradient = gradients.find((g) => g.id === appliedId)
+    if (!gradient) return
+    const signature = `${appliedId}|${angle}|${type}|${activePageId}`
+    if (signature === lastApplied.current) return
+    lastApplied.current = signature
+    editor.pages.setBackground(activePageId, backgroundOf(gradient), `gradient:${appliedId}`)
+  }, [appliedId, angle, type, gradients, activePageId, editor, backgroundOf])
   
   const applyToSelected = useCallback(async (gradient: GradientDefinition) => {
     try {
@@ -171,7 +193,12 @@ export function GradientPicker() {
           <div
             key={gradient.id}
             className={`${styles.gradientCard} ${selectedGradient?.id === gradient.id ? styles.selected : ''}`}
-            onClick={() => setSelectedGradient(gradient)}
+            onClick={() => { setSelectedGradient(gradient); applyToCanvas(gradient) }}
+            data-testid={`gradient-card-${gradient.id}`}
+            role="button"
+            tabIndex={0}
+            aria-label={`Apply ${gradient.name} to the page background`}
+            onKeyDown={e => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); setSelectedGradient(gradient); applyToCanvas(gradient) } }}
             style={{
               position: 'relative',
               aspectRatio: '16/9',

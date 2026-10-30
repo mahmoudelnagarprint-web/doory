@@ -67,16 +67,25 @@ export function FontLoaderPanel() {
     }
   }, [loadingFonts, loadedFonts])
   
-  const applyToSelection = useCallback((font: FontDefinition) => {
-    const textObjects = editor.selectedObjects().filter(o => o.type === 'textbox' || o.type === 'text')
-    if (textObjects.length === 0) {
-      editor.toast('Select text elements first', 'info')
-      return
+  /**
+   * Clicking a font applies it straight away: the family is loaded (with a short cap so a slow CDN never blocks the
+   * click), and when no text layer is selected the panel drops a new one so the font has something to format.
+   */
+  const applyFont = useCallback(async (font: FontDefinition) => {
+    setSelectedFont(font)
+    if (!loadedFonts.has(font.family) && !loadingFonts.has(font.family)) {
+      await Promise.race([
+        handleFontLoad(font),
+        new Promise(resolve => window.setTimeout(resolve, 4000)),
+      ])
     }
-    
-    editor.style.text({ fontFamily: getFontFamilyCSS(font) })
-    editor.toast(`Applied "${font.family}" to ${textObjects.length} text elements`, 'success')
-  }, [editor])
+    const isText = (o: { type?: string }) => o.type === 'textbox' || o.type === 'i-text' || o.type === 'text'
+    if (!editor.selectedObjects().some(isText)) {
+      await editor.insert.text('body')
+    }
+    editor.style.text({ fontFamily: font.family })
+    editor.toast(`Applied "${font.family}"`, 'success')
+  }, [editor, handleFontLoad, loadingFonts, loadedFonts])
   
   const copyFontCSS = useCallback(async (font: FontDefinition) => {
     const css = `@import url('https://fonts.googleapis.com/css2?family=${encodeURIComponent(font.family)}:wght@${font.variants.join(';')}&display=swap&subset=${font.subsets.join(',')}');\n\nfont-family: "${font.family}", ${font.fallback || 'system-ui, sans-serif'};`
@@ -151,7 +160,12 @@ export function FontLoaderPanel() {
             <div
               key={font.family}
               className={`${styles.fontCard} ${selectedFont?.family === font.family ? styles.selected : ''}`}
-              onClick={() => setSelectedFont(font)}
+              onClick={() => { void applyFont(font) }}
+              data-testid={`font-card-${font.family}`}
+              role="button"
+              tabIndex={0}
+              aria-label={`Apply ${font.family}`}
+              onKeyDown={e => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); void applyFont(font) } }}
               style={{
                 padding: 12,
                 background: 'var(--ed-surface-2)',
@@ -236,7 +250,7 @@ export function FontLoaderPanel() {
                 >
                   {loading ? 'Loading...' : loaded ? '✓ Loaded' : 'Load Font'}
                 </button>
-                <button onClick={e => { e.stopPropagation(); applyToSelection(font) }} disabled={!loaded} style={{ padding: '6px 10px', fontSize: 11, borderRadius: 4, border: '1px solid var(--ed-border)', background: loaded ? 'var(--ed-accent)' : 'var(--ed-surface-3)', color: loaded ? '#fff' : 'var(--ed-text-dim)', cursor: loaded ? 'pointer' : 'not-allowed', opacity: loaded ? 1 : 0.5 }}>
+                <button onClick={e => { e.stopPropagation(); void applyFont(font) }} disabled={!loaded} style={{ padding: '6px 10px', fontSize: 11, borderRadius: 4, border: '1px solid var(--ed-border)', background: loaded ? 'var(--ed-accent)' : 'var(--ed-surface-3)', color: loaded ? '#fff' : 'var(--ed-text-dim)', cursor: loaded ? 'pointer' : 'not-allowed', opacity: loaded ? 1 : 0.5 }}>
                   Apply
                 </button>
                 <button onClick={e => { e.stopPropagation(); copyFontCSS(font) }} style={{ padding: '6px', borderRadius: 4, border: '1px solid var(--ed-border)', background: 'var(--ed-surface-3)', color: 'var(--ed-text)', cursor: 'pointer' }} title="Copy @import CSS">
@@ -251,7 +265,7 @@ export function FontLoaderPanel() {
       {/* Selected Font Details */}
       {selectedFont && (
         <Suspense fallback={<div className={styles.skeleton} style={{ height: 200 }} />}>
-          <FontPreview font={selectedFont} onApply={applyToSelection} onCopyCSS={copyFontCSS} />
+          <FontPreview font={selectedFont} onApply={(font) => { void applyFont(font) }} onCopyCSS={copyFontCSS} />
         </Suspense>
       )}
     </div>

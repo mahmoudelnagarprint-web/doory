@@ -1,6 +1,7 @@
 import { Crop, Frame, Replace } from 'lucide-react'
 import { I } from '../../chrome/icons'
 import { useEditor, useSelection } from '../../context'
+import { lazy, Suspense, useState } from 'react'
 import { isBackgroundRemovalAvailable } from '../../engine/bgRemoval'
 import { isUpscaleSupported } from '../../engine/upscale/support'
 import { useBackgroundRemovalOptions } from '../../hooks/useBackgroundRemovalOptions'
@@ -13,6 +14,7 @@ import { Switch } from '../../ui/Switch'
 import { OpacityTool } from '../controls'
 import { Field, PopoverStack, PopoverTool, ToolButton } from '../parts'
 import ed from '../../chrome/ed.module.css'
+const CameraRawStudioModal = lazy(() => import('../../panels/CameraRawStudioModal').then(m => ({ default: m.default })))
 import styles from './sections.module.css'
 
 function MaskGlyph({ id }: { id: (typeof MASK_SHAPE_IDS)[number] | 'none' }) {
@@ -96,6 +98,7 @@ export function AdjustPanel() {
 export function ImageSection() {
   const editor = useEditor()
   const sel = useSelection()
+  const [openCameraRaw, setOpenCameraRaw] = useState(false)
   const fillsPlaceholder = sel.objects[0]?.slot !== undefined
   // The in-browser model, or a server option for this user (the list arrives a moment later).
   const removal = useBackgroundRemovalOptions()
@@ -112,10 +115,15 @@ export function ImageSection() {
         </ToolButton>
       )}
       {isUpscaleSupported() && editor.style.canUpscale() ? (
-        <ToolButton label={t.toolbar.upscale} featured testId="ed-upscale" onClick={() => editor.openDialog('upscale')}>
-          {I.upscale}
-          <span className={ed.toolText}>{t.toolbar.upscale}</span>
+        <>
+          <ToolButton label={t.toolbar.upscale} featured testId="ed-upscale" onClick={() => editor.openDialog('upscale')}>
+            {I.upscale}
+            <span className={ed.toolText}>{t.toolbar.upscale}</span>
+          </ToolButton>
+          <ToolButton label="Camera Raw Studio" testId="ed-camera-raw" onClick={() => setOpenCameraRaw(true)}>
+          <span style={{ fontWeight: 700, fontSize: 13, letterSpacing: 1, color: '#7c5cff' }}>CAM</span>
         </ToolButton>
+        </>
       ) : null}
       <ToolButton label={t.toolbar.replaceImage} testId="ed-replace-image" onClick={() => void editor.insert.pickAndReplaceImage()}>
         <Replace size={18} aria-hidden="true" />
@@ -136,6 +144,11 @@ export function ImageSection() {
       </PopoverTool>
       {fillsPlaceholder ? null : <FrameTool />}
       <OpacityTool />
+      {openCameraRaw && (
+        <Suspense fallback={null}>
+          <CameraRawStudioModal onClose={() => setOpenCameraRaw(false)} />
+        </Suspense>
+      )}
     </>
   )
 }

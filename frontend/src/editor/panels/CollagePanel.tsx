@@ -241,20 +241,16 @@ export function CollagePanel(_props: PanelProps) {
                   display={`${deconstructOptions.paperLuminanceThreshold ?? 200}`}
                   onChange={(v) => setDeconstructOptions((o) => ({ ...o, paperLuminanceThreshold: v }))}
                 />
-                <div className={styles.toggleRow}>
-                  <span className={styles.label}>{collageStrings.deconstructAdvancedSeg}</span>
-                  <Switch
-                    checked={deconstructOptions.useAdvancedSegmentation ?? true}
-                    onChange={(v) => setDeconstructOptions((o) => ({ ...o, useAdvancedSegmentation: v }))}
-                  />
-                </div>
-                <div className={styles.toggleRow}>
-                  <span className={styles.label}>{collageStrings.deconstructTextDetect}</span>
-                  <Switch
-                    checked={deconstructOptions.useTextDetection ?? true}
-                    onChange={(v) => setDeconstructOptions((o) => ({ ...o, useTextDetection: v }))}
-                  />
-                </div>
+                <Switch
+                  label={collageStrings.deconstructAdvancedSeg}
+                  checked={deconstructOptions.useAdvancedSegmentation ?? true}
+                  onChange={(v) => setDeconstructOptions((o) => ({ ...o, useAdvancedSegmentation: v }))}
+                />
+                <Switch
+                  label={collageStrings.deconstructTextDetect}
+                  checked={deconstructOptions.useTextDetection ?? true}
+                  onChange={(v) => setDeconstructOptions((o) => ({ ...o, useTextDetection: v }))}
+                />
               </div>
 
               {/* ── Start button ── */}
@@ -679,20 +675,16 @@ export function CollagePanel(_props: PanelProps) {
                 display={`${deconstructOptions.paperLuminanceThreshold ?? 200}`}
                 onChange={(v) => setDeconstructOptions((o) => ({ ...o, paperLuminanceThreshold: v }))}
               />
-              <div className={styles.toggleRow}>
-                <span className={styles.label}>{collageStrings.deconstructAdvancedSeg}</span>
-                <Switch
-                  checked={deconstructOptions.useAdvancedSegmentation ?? true}
-                  onChange={(v) => setDeconstructOptions((o) => ({ ...o, useAdvancedSegmentation: v }))}
-                />
-              </div>
-              <div className={styles.toggleRow}>
-                <span className={styles.label}>{collageStrings.deconstructTextDetect}</span>
-                <Switch
-                  checked={deconstructOptions.useTextDetection ?? true}
-                  onChange={(v) => setDeconstructOptions((o) => ({ ...o, useTextDetection: v }))}
-                />
-              </div>
+              <Switch
+                label={collageStrings.deconstructAdvancedSeg}
+                checked={deconstructOptions.useAdvancedSegmentation ?? true}
+                onChange={(v) => setDeconstructOptions((o) => ({ ...o, useAdvancedSegmentation: v }))}
+              />
+              <Switch
+                label={collageStrings.deconstructTextDetect}
+                checked={deconstructOptions.useTextDetection ?? true}
+                onChange={(v) => setDeconstructOptions((o) => ({ ...o, useTextDetection: v }))}
+              />
             </div>
 
             {/* ── Start button ── */}

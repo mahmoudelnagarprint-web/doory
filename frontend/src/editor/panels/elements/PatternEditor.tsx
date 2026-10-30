@@ -7,7 +7,7 @@ export interface PatternEditorProps {
   pattern: PatternDefinition
   options: PatternOptions
   onChange: (options: PatternOptions) => void
-  onInsert: (pattern: PatternDefinition) => void
+  onInsert: (pattern: PatternDefinition, fillPage?: boolean) => void
 }
 
 export function PatternEditor({ pattern, options, onChange, onInsert }: PatternEditorProps) {
@@ -172,7 +172,7 @@ const handleControlChange = (key: keyof PatternOptions | 'rotation', value: Cont
           </button>
           <button
             type="button"
-            onClick={() => onInsert(pattern)}
+            onClick={() => onInsert(pattern, true)}
             className={styles.primaryBtn}
             style={{ display: 'inline-flex', alignItems: 'center', gap: 6, marginLeft: 'auto' }}
           >

@@ -174,6 +174,7 @@ export interface PatternOptions {
   opacity: number
   rotation?: number
   seed?: number
+  blendMode?: 'normal' | 'multiply' | 'overlay' | 'screen' | 'darken' | 'lighten'
 }
 
 export interface PatternControl {
@@ -193,6 +194,14 @@ const baseControls: PatternControl[] = [
   { key: 'scale', label: 'Scale', type: 'range', min: 0.5, max: 3, step: 0.1 },
   { key: 'opacity', label: 'Opacity', type: 'range', min: 0, max: 1, step: 0.05 },
   { key: 'rotation', label: 'Rotation', type: 'range', min: 0, max: 360, step: 1 },
+  { key: 'blendMode', label: 'Blend Mode', type: 'select', options: [
+    { value: 'normal', label: 'Normal' },
+    { value: 'multiply', label: 'Multiply' },
+    { value: 'overlay', label: 'Overlay' },
+    { value: 'screen', label: 'Screen' },
+    { value: 'darken', label: 'Darken' },
+    { value: 'lighten', label: 'Lighten' },
+  ] },
 ]
 
 const defaultOptions: PatternOptions = {
@@ -201,6 +210,7 @@ const defaultOptions: PatternOptions = {
   scale: 1,
   opacity: 1,
   rotation: 0,
+  blendMode: 'normal',
 }
 
 function wrapPattern(content: string, opts: PatternOptions): string {
@@ -631,9 +641,13 @@ export function getPattern(id: string): PatternDefinition | undefined {
   return PATTERN_DEFINITIONS.find(p => p.id === id)
 }
 
-export function applyPatternToRect(patternId: string, _width: number, _height: number, options: Partial<PatternOptions> = {}): string {
+export function applyPatternToRect(patternId: string, width = 800, height = 600, options: Partial<PatternOptions> = {}): string {
   const pattern = getPattern(patternId)
   if (!pattern) return ''
   const opts = { ...pattern.defaultOptions, ...options }
-  return pattern.generate(opts)
+  const fullPattern = pattern.generate({ ...opts })
+  // Strip <pattern> wrapper and put content directly in SVG; let viewBox handle scaling
+  const inner = fullPattern.replace(/<pattern[^>]*>/g, '').replace(/<\/pattern>/g, '').trim()
+  const blendCss = opts.blendMode && opts.blendMode !== 'normal' ? ` style="mix-blend-mode:${opts.blendMode}"` : ''
+  return `<svg xmlns="http://www.w3.org/2000/svg" width="${width}" height="${height}" viewBox="0 0 100 100" preserveAspectRatio="none"${blendCss}>${inner}</svg>`
 }
