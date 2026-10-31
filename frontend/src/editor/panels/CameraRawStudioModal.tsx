@@ -1,4 +1,4 @@
-﻿/**
+/**
  * Camera Raw Studio — Doory image studio (raw + retouch + artistic effects + expand + neural upscale).
  *
  * Architecture notes (audit-verified):
@@ -29,6 +29,7 @@ import { applyEffect, type EffectKind } from '../engine/imageStudio/filters'
 import { skinSmooth, denoise, selectiveSharpen } from '../engine/imageStudio/retouch'
 import { computeExpandRect, expandClassical, GENERATIVE_EXPAND_BLOCKED, type EdgeSpec } from '../engine/imageStudio/expand'
 import { floodSelect } from '../engine/imageStudio/floodSelect'
+import { selectByColor, resizeMaskNearest, compositePlacedImage } from '../engine/imageStudio/placeSelect'
 import { NEURAL_MODELS, NeuralUpscaleError, runNeuralUpscale, type NeuralModelDescriptor } from '../engine/imageStudio/upscaleNeural'
 
 type Stage = 'loading' | 'ready' | 'applying' | 'error'
@@ -53,6 +54,29 @@ interface NeuralState {
   ms: number
 }
 const NEURAL_DEFAULT: NeuralState = { modelId: NEURAL_MODELS[0].id, running: false, progress: 0, error: null, done: false, outW: 0, outH: 0, ms: 0 }
+
+/**
+ * Classical selection state for the Select tab. The mask always lives at PRISTINE (source) resolution
+ * so the full-res composite lands on exactly the pixels the user picked, regardless of preview scale.
+ * `seed` is kept so changing the tolerance or mode re-runs the same pick.
+ */
+interface SelectState {
+  mode: 'area' | 'color'
+  tolerance: number
+  mask: Uint8ClampedArray<ArrayBuffer> | null
+  maskW: number
+  maskH: number
+  seed: { x: number; y: number } | null
+}
+const SELECT_DEFAULT: SelectState = { mode: 'area', tolerance: 32, mask: null, maskW: 0, maskH: 0, seed: null }
+
+/** The image the user chose to place inside the selection, decoded to pixels (pure array — composite-ready). */
+interface PlacedImage {
+  data: Uint8ClampedArray<ArrayBuffer>
+  width: number
+  height: number
+  name: string
+}
 
 /** Live-preview source budget — keeps per-gesture renders cheap. */
 const PREVIEW_MAX = 900
@@ -151,9 +175,13 @@ export default function CameraRawStudioModal({ onClose }: { onClose: () => void 
   const [hasAlpha, setHasAlpha] = useState(false)
   const [busy, setBusy] = useState<string | null>(null)
   const [previewSize, setPreviewSize] = useState<{ w: number; h: number } | null>(null)
+  const [select, setSelect] = useState<SelectState>({ ...SELECT_DEFAULT })
+  const [placed, setPlaced] = useState<PlacedImage | null>(null)
 
   // Pristine full-res session source + downscaled GPU source.
   const pristineRef = useRef<HTMLCanvasElement | null>(null)
+  /** Cached pristine pixels — the classical selectors read them repeatedly (tolerance changes). */
+  const pristineDataRef = useRef<ImageData | null>(null)
   const pipelineRef = useRef<StudioPipeline | null>(null)
   const glCanvasRef = useRef<HTMLCanvasElement | null>(null)
   const originalDisplayRef = useRef<HTMLCanvasElement | null>(null)
@@ -299,6 +327,82 @@ export default function CameraRawStudioModal({ onClose }: { onClose: () => void 
     }
   }, [expand])
 
+  // ---------------------------------------------------------------
+  // Classical select & place — real pixel work, never AI, never faked.
+  // ---------------------------------------------------------------
+  const getPristinePixels = useCallback((): ImageData | null => {
+    const pristine = pristineRef.current
+    if (!pristine) return null
+    const cached = pristineDataRef.current
+    if (cached && cached.width === pristine.width && cached.height === pristine.height) return cached
+    const px = pristine.getContext('2d', { willReadFrequently: true })!.getImageData(0, 0, pristine.width, pristine.height)
+    pristineDataRef.current = px
+    return px
+  }, [])
+
+  /** Maps a point in the preview buffer to pristine source pixels (expand offsets included). */
+  const previewToSource = useCallback((px: number, py: number): { x: number; y: number } | null => {
+    const pristine = pristineRef.current
+    if (!pristine) return null
+    const k = Math.min(1, PREVIEW_MAX / Math.max(pristine.width, pristine.height))
+    const sw = Math.max(1, Math.round(pristine.width * k))
+    const sh = Math.max(1, Math.round(pristine.height * k))
+    let ox = 0
+    let oy = 0
+    if (expand.top || expand.right || expand.bottom || expand.left) {
+      const rect = computeExpandRect(sw, sh, { top: expand.top, right: expand.right, bottom: expand.bottom, left: expand.left, unit: expand.unit })
+      ox = rect.offsetX
+      oy = rect.offsetY
+    }
+    return { x: (px - ox) / k, y: (py - oy) / k }
+  }, [expand])
+
+  const runSelection = useCallback((seed: { x: number; y: number }, mode: 'area' | 'color', tolerance: number): void => {
+    const px = getPristinePixels()
+    if (!px) return
+    const sx = Math.max(0, Math.min(px.width - 1, Math.round(seed.x)))
+    const sy = Math.max(0, Math.min(px.height - 1, Math.round(seed.y)))
+    let mask: Uint8ClampedArray<ArrayBuffer>
+    if (mode === 'color') {
+      const i = (sy * px.width + sx) * 4
+      mask = selectByColor(px, { r: px.data[i], g: px.data[i + 1], b: px.data[i + 2] }, tolerance)
+    } else {
+      mask = floodSelect({ data: px.data, width: px.width, height: px.height }, sx, sy, tolerance)
+    }
+    setSelect((s) => ({ ...s, mask, maskW: px.width, maskH: px.height, seed }))
+  }, [getPristinePixels])
+
+  // A tolerance/mode change re-runs the same pick (debounced — a full-res flood is a real pass).
+  const selectSeed = select.seed
+  useEffect(() => {
+    if (!selectSeed) return
+    const t = window.setTimeout(() => runSelection(selectSeed, select.mode, select.tolerance), 220)
+    return () => window.clearTimeout(t)
+  }, [selectSeed, select.mode, select.tolerance, runSelection])
+
+  const loadPlaced = useCallback(async (file: File): Promise<void> => {
+    try {
+      const url = URL.createObjectURL(file)
+      const img = new Image()
+      img.crossOrigin = 'anonymous'
+      await new Promise<void>((resolve, reject) => {
+        img.onload = () => resolve()
+        img.onerror = () => reject(new Error('load failed'))
+        img.src = url
+      })
+      const c = document.createElement('canvas')
+      c.width = img.naturalWidth || 1
+      c.height = img.naturalHeight || 1
+      const cctx = c.getContext('2d', { willReadFrequently: true })!
+      cctx.drawImage(img, 0, 0)
+      const px = cctx.getImageData(0, 0, c.width, c.height)
+      setPlaced({ data: px.data, width: c.width, height: c.height, name: file.name })
+      URL.revokeObjectURL(url)
+    } catch {
+      editor.toast('تعذر تحميل الصورة الموضوعة.', 'error')
+    }
+  }, [editor])
+
   /** Full redraw: GPU raw → CPU retouch → CPU effect. Debounced ~80ms. */
   useEffect(() => {
     if (stage !== 'ready') return
@@ -360,6 +464,56 @@ export default function CameraRawStudioModal({ onClose }: { onClose: () => void 
             ectx.strokeRect(expandedRect.offsetX, expandedRect.offsetY, originalW, originalH)
           }
         }
+        // Select tab overlay: the placed image is composited INSIDE the selection (what Apply will bake),
+        // otherwise the selection itself shows as the red preview. Both get the dashed bounds box.
+        if (select.mask && select.maskW > 0 && pixels.width > 0 && pixels.height > 0) {
+          const k = originalW / select.maskW
+          const mw = Math.max(1, Math.round(select.maskW * k))
+          const mh = Math.max(1, Math.round(select.maskH * k))
+          const resized = resizeMaskNearest(select.mask, select.maskW, select.maskH, mw, mh)
+          const bx = expandedRect ? expandedRect.offsetX : 0
+          const by = expandedRect ? expandedRect.offsetY : 0
+          const dispMask = new Uint8ClampedArray(pixels.width * pixels.height)
+          let dMinX = pixels.width, dMaxX = -1, dMinY = pixels.height, dMaxY = -1
+          for (let y = 0; y < mh; y++) {
+            const ty = by + y
+            if (ty < 0 || ty >= pixels.height) continue
+            for (let x = 0; x < mw; x++) {
+              const tx = bx + x
+              if (tx < 0 || tx >= pixels.width) continue
+              const v = resized[y * mw + x]
+              if (v === 0) continue
+              dispMask[ty * pixels.width + tx] = v
+              if (tx < dMinX) dMinX = tx
+              if (tx > dMaxX) dMaxX = tx
+              if (ty < dMinY) dMinY = ty
+              if (ty > dMaxY) dMaxY = ty
+            }
+          }
+          if (placed) {
+            const composed = compositePlacedImage({ data: work, width: pixels.width, height: pixels.height }, dispMask, placed)
+            dctx.putImageData(new ImageData(composed, pixels.width, pixels.height), 0, 0)
+          } else {
+            const overlay = dctx.createImageData(pixels.width, pixels.height)
+            for (let i = 0; i < dispMask.length; i++) {
+              if (dispMask[i] <= 128) continue
+              overlay.data[i * 4] = 255
+              overlay.data[i * 4 + 1] = 30
+              overlay.data[i * 4 + 2] = 30
+              overlay.data[i * 4 + 3] = 140
+            }
+            dctx.putImageData(overlay, 0, 0)
+          }
+          if (dMaxX >= dMinX && dMaxY >= dMinY) {
+            dctx.save()
+            dctx.strokeStyle = '#7c5cff'
+            dctx.lineWidth = 2
+            dctx.setLineDash([6, 4])
+            dctx.strokeRect(dMinX, dMinY, dMaxX - dMinX + 1, dMaxY - dMinY + 1)
+            dctx.restore()
+          }
+        }
+
         // The zoom controls size the canvas in CSS pixels — record the rendered buffer size.
         setPreviewSize((p) => (p && p.w === pixels.width && p.h === pixels.height ? p : { w: pixels.width, h: pixels.height }))
       })
@@ -367,7 +521,7 @@ export default function CameraRawStudioModal({ onClose }: { onClose: () => void 
     return () => {
       if (renderTimerRef.current !== null) window.clearTimeout(renderTimerRef.current)
     }
-  }, [stage, ensurePipeline, buildPreviewSource, rawParams, retouch, effect, expand])
+  }, [stage, ensurePipeline, buildPreviewSource, rawParams, retouch, effect, expand, select, placed])
 
   // Dispose the WebGL context once.
   useEffect(() => () => {
@@ -411,9 +565,13 @@ export default function CameraRawStudioModal({ onClose }: { onClose: () => void 
     onStep?.('توسيع الكادر…')
     const anyEdge = expand.top || expand.right || expand.bottom || expand.left
     let base: HTMLCanvasElement = pristine
+    let expandOffsetX = 0
+    let expandOffsetY = 0
     if (anyEdge) {
       const spec: EdgeSpec = { top: expand.top, right: expand.right, bottom: expand.bottom, left: expand.left, unit: expand.unit }
       const rect = computeExpandRect(pristine.width, pristine.height, spec)
+      expandOffsetX = rect.offsetX
+      expandOffsetY = rect.offsetY
       const full = pristine.getContext('2d', { willReadFrequently: true })!.getImageData(0, 0, pristine.width, pristine.height)
       const data = expandClassical({ data: full.data, width: full.width, height: full.height }, expand.mode, rect)
       const canvas = document.createElement('canvas')
@@ -452,6 +610,28 @@ export default function CameraRawStudioModal({ onClose }: { onClose: () => void 
       px.data.set(applyEffect(px, effect.kind, { strength: effect.strength, level: effect.level }))
     }
     octx.putImageData(new ImageData(px.data, px.width, px.height), 0, 0)
+    // Placed image inside the classical selection — a real full-res composite, run BEFORE the neural
+    // step so the whole art (including the placed image) is what any upscale sees. The mask lives in
+    // pristine coordinates, so an expanded canvas shifts it by the expand offsets.
+    if (select.mask && select.maskW > 0 && placed) {
+      onStep?.('دمج الصورة داخل التحديد…')
+      await Promise.resolve()
+      let fullMask = select.mask
+      if (expandOffsetX !== 0 || expandOffsetY !== 0 || px.width !== select.maskW || px.height !== select.maskH) {
+        fullMask = new Uint8ClampedArray(px.width * px.height)
+        for (let y = 0; y < select.maskH; y++) {
+          const ty = expandOffsetY + y
+          if (ty < 0 || ty >= px.height) continue
+          for (let x = 0; x < select.maskW; x++) {
+            const tx = expandOffsetX + x
+            if (tx < 0 || tx >= px.width) continue
+            fullMask[ty * px.width + tx] = select.mask[y * select.maskW + x]
+          }
+        }
+      }
+      px.data.set(compositePlacedImage({ data: px.data, width: px.width, height: px.height }, fullMask, placed))
+      octx.putImageData(new ImageData(px.data, px.width, px.height), 0, 0)
+    }
     // Neural upscale LAST (only when the user explicitly ran it and it succeeded).
     if (neural.done && neural.outW > 0) {
       onStep?.('التكبير العصبي…')
@@ -464,7 +644,7 @@ export default function CameraRawStudioModal({ onClose }: { onClose: () => void 
       return upscaled
     }
     return out
-  }, [ensurePipeline, expand, rawParams, retouch, effect, neural.done, neural.modelId, neural.outW])
+  }, [ensurePipeline, expand, rawParams, retouch, effect, neural.done, neural.modelId, neural.outW, select, placed])
 
   const applyToEditor = useCallback(async (): Promise<void> => {
     const pristine = pristineRef.current
@@ -618,51 +798,16 @@ export default function CameraRawStudioModal({ onClose }: { onClose: () => void 
                   style={{ ...(zoom === 'fit' ? { maxWidth: '100%', maxHeight: '70vh', borderRadius: 8, border: '1px solid var(--ed-border)', boxShadow: '0 8px 30px rgba(0,0,0,0.35)', background: 'var(--ed-surface-2)', display: 'block' } : { width: `${previewSize?.w ? previewSize.w * zoom : 300}px`, borderRadius: 8, border: '1px solid var(--ed-border)', boxShadow: '0 8px 30px rgba(0,0,0,0.35)', background: 'var(--ed-surface-2)', display: 'block', imageRendering: zoom >= 2 ? 'pixelated' : undefined }), cursor: tab === 'select' ? 'crosshair' : undefined }}
                   onDoubleClick={() => setZoom('fit')}
                   onClick={(e) => {
-                    if (tab !== 'select') return
+                    if (tab !== 'select' || !sourceDims) return
                     const rect = (e.currentTarget as HTMLCanvasElement).getBoundingClientRect()
-                    const x = Math.floor((e.clientX - rect.left) * (sourceDims?.w ?? 1) / rect.width)
-                    const y = Math.floor((e.clientY - rect.top) * (sourceDims?.h ?? 1) / rect.height)
-                    const displayCtx = (e.currentTarget as HTMLCanvasElement).getContext('2d')
-                    if (!displayCtx || !sourceDims) return
-                    try {
-                      const w = rect.width, h = rect.height
-                      const imgData = displayCtx.getImageData(0, 0, w, h)
-                      const mask = floodSelect(
-                        { data: imgData.data, width: Math.round(w), height: Math.round(h) },
-                        Math.min(x, Math.round(w) - 1),
-                        Math.min(y, Math.round(h) - 1),
-                        32,
-                      )
-                      const overlayData = displayCtx.createImageData(w, h)
-                      let minX = w, maxX = 0, minY = h, maxY = 0
-                      for (let i = 0; i < w * h; i++) {
-                        if (mask[i] > 128) {
-                          overlayData.data[i * 4] = 255
-                          overlayData.data[i * 4 + 1] = 30
-                          overlayData.data[i * 4 + 2] = 30
-                          overlayData.data[i * 4 + 3] = 160
-                          const px = i % w, py = Math.floor(i / w)
-                          if (px < minX) minX = px; if (px > maxX) maxX = px
-                          if (py < minY) minY = py; if (py > maxY) maxY = py
-                        }
-                      }
-                      displayCtx.putImageData(overlayData, 0, 0)
-                      for (let i = 0; i < w * h; i++) {
-                        if (mask[i] <= 128) imgData.data[i * 4 + 3] = 0
-                      }
-                      displayCtx.putImageData(imgData, 0, 0)
-                      if (minX <= maxX && minY <= maxY) {
-                        displayCtx.save()
-                        displayCtx.strokeStyle = '#7c5cff'
-                        displayCtx.lineWidth = 2
-                        displayCtx.setLineDash([6, 4])
-                        displayCtx.strokeRect(minX, minY, maxX - minX + 1, maxY - minY + 1)
-                        displayCtx.restore()
-                      }
-                      alert('تم تحديد كلاسيكي (Flood Fill) — الصورة مخفية خارج الشكل + حدود متقطعة + طبقة حمراء.')
-                    } catch {
-                      // Silent failure for classical algorithm
-                    }
+                    // Map the click through the preview buffer into pristine source pixels, then run the
+                    // real selector on the full-res data — the preview overlay is drawn by the render
+                    // effect from the stored mask, so it survives every re-render.
+                    const px = (e.clientX - rect.left) * (e.currentTarget as HTMLCanvasElement).width / rect.width
+                    const py = (e.clientY - rect.top) * (e.currentTarget as HTMLCanvasElement).height / rect.height
+                    const src = previewToSource(px, py)
+                    if (!src) return
+                    runSelection(src, select.mode, select.tolerance)
                   }}
                 />
                 <canvas
@@ -726,12 +871,47 @@ export default function CameraRawStudioModal({ onClose }: { onClose: () => void 
           {tab === 'expand' && <ExpandTab expand={expand} setExpand={setExpand} onEdge={(k, v) => setExpand((e) => ({ ...e, [k]: Math.max(0, v) }))} previewRef={expandPreviewRef} />}
           {tab === 'upscale' && <NeuralTab neural={neural} onModel={(modelId) => setNeural((n) => ({ ...n, modelId }))} onRun={() => void runNeural()} />}
           {tab === 'select' && (
-            <div style={{ padding: 10, fontSize: 12 }}>
-              <strong>سيلكت كلاسيكي (Flood Fill)</strong>
-              <p style={{ color: 'var(--ed-text-dim)', fontSize: 11, marginTop: 4 }}>
-                اختر نقطة على الصورة بالماوس. هذه خوارزمية كلاسيكية (ليست AI) تعتمد على تشابه اللون.
+            <div style={{ padding: 10, fontSize: 12, display: 'flex', flexDirection: 'column', gap: 8 }}>
+              <strong>تحديد كلاسيكي ووضع صورة</strong>
+              <p style={{ color: 'var(--ed-text-dim)', fontSize: 11, margin: 0, lineHeight: 1.7 }}>
+                اضغط على الصورة: وضع «منطقة» يحدد المتصل من النقطة، ووضع «لون» يحدد كل البكسلات المشابهة
+                للون النقطة في كامل الصورة. خوارزمية كلاسيكية — ليست AI.
               </p>
-              <button style={BTN.dim} onClick={() => alert('اضغط على الصورة لتحديد نقطة البداية. هذه ميزة كلاسيكية.')}>فهمت</button>
+              <div style={{ display: 'flex', gap: 6 }}>
+                <button style={select.mode === 'area' ? BTN.active : BTN.dim} onClick={() => setSelect((s) => ({ ...s, mode: 'area' }))}>منطقة متصلة</button>
+                <button style={select.mode === 'color' ? BTN.active : BTN.dim} onClick={() => setSelect((s) => ({ ...s, mode: 'color' }))}>لون في كل الصورة</button>
+              </div>
+              <label style={{ display: 'flex', alignItems: 'center', gap: 8, fontSize: 11 }}>
+                حد التشابه
+                <input
+                  type="range" min={0} max={120} step={1} value={select.tolerance}
+                  onChange={(e) => setSelect((s) => ({ ...s, tolerance: Number(e.target.value) }))}
+                  style={{ flex: 1, accentColor: 'var(--ed-accent)' }}
+                />
+                <span style={{ minWidth: 28, textAlign: 'center', fontVariantNumeric: 'tabular-nums' }}>{select.tolerance}</span>
+              </label>
+              <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap' }}>
+                <button style={BTN.dim} disabled={!select.mask} onClick={() => setSelect((s) => ({ ...s, mask: null, seed: null }))}>مسح التحديد</button>
+                <label style={{ ...BTN.dim, cursor: 'pointer' }}>
+                  وضع صورة داخل التحديد
+                  <input
+                    type="file" accept="image/*" style={{ display: 'none' }}
+                    onChange={(e) => {
+                      const f = e.target.files?.[0]
+                      if (f) void loadPlaced(f)
+                      e.target.value = ''
+                    }}
+                  />
+                </label>
+                {placed && <button style={BTN.dim} onClick={() => setPlaced(null)}>إزالة الصورة الموضوعة</button>}
+              </div>
+              {placed && (
+                <div style={{ fontSize: 11, color: 'var(--ed-text-dim)', lineHeight: 1.7 }}>
+                  الصورة الموضوعة: {placed.name} ({placed.width}×{placed.height}) — تُدمج داخل التحديد في
+                  المعاينة الآن، وعند «تطبيق التعديلات» أو «تصدير» على الدقة الكاملة.
+                </div>
+              )}
+              {!select.mask && <div style={{ fontSize: 11, color: 'var(--ed-text-dim)' }}>لا يوجد تحديد بعد — اضغط على الصورة.</div>}
             </div>
           )}
 
