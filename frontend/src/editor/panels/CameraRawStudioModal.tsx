@@ -17,7 +17,7 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
 import {
   Download, X, Camera, RotateCcw, Undo2, Redo2, SlidersHorizontal,
-  Wand2, Brush, Palette, Expand, ImagePlus, Loader2,
+  Wand2, Brush, Palette, Expand, ImagePlus, Loader2, MousePointerClick,
 } from 'lucide-react'
 import { useEditor, useEditorState } from '../context'
 import {
@@ -28,6 +28,7 @@ import { StudioPipeline, StudioPipelineError } from '../engine/imageStudio/webgl
 import { applyEffect, type EffectKind } from '../engine/imageStudio/filters'
 import { skinSmooth, denoise, selectiveSharpen } from '../engine/imageStudio/retouch'
 import { computeExpandRect, expandClassical, GENERATIVE_EXPAND_BLOCKED, type EdgeSpec } from '../engine/imageStudio/expand'
+import { floodSelect } from '../engine/imageStudio/floodSelect'
 import { NEURAL_MODELS, NeuralUpscaleError, runNeuralUpscale, type NeuralModelDescriptor } from '../engine/imageStudio/upscaleNeural'
 
 type Stage = 'loading' | 'ready' | 'applying' | 'error'
@@ -97,6 +98,7 @@ const TAB_DEFS = [
   { id: 'effects', label: 'تأثيرات فنية', en: 'Artistic', Icon: Palette },
   { id: 'expand', label: 'توسيع الكادر', en: 'Expand', Icon: Expand },
   { id: 'upscale', label: 'تكبير عصبي (AI)', en: 'Neural upscale', Icon: Wand2 },
+  { id: 'select', label: 'سيلكت كلاسيكي', en: 'Classic Select', Icon: MousePointerClick },
 ] as const
 type TabId = (typeof TAB_DEFS)[number]['id']
 
@@ -613,12 +615,55 @@ export default function CameraRawStudioModal({ onClose }: { onClose: () => void 
               >
                 <canvas
                   ref={processedDisplayRef}
-                  style={
-                    zoom === 'fit'
-                      ? { maxWidth: '100%', maxHeight: '70vh', borderRadius: 8, border: '1px solid var(--ed-border)', boxShadow: '0 8px 30px rgba(0,0,0,0.35)', background: 'var(--ed-surface-2)', display: 'block' }
-                      : { width: `${previewSize?.w ? previewSize.w * zoom : 300}px`, borderRadius: 8, border: '1px solid var(--ed-border)', boxShadow: '0 8px 30px rgba(0,0,0,0.35)', background: 'var(--ed-surface-2)', display: 'block', imageRendering: zoom >= 2 ? 'pixelated' : undefined }
-                  }
+                  style={{ ...(zoom === 'fit' ? { maxWidth: '100%', maxHeight: '70vh', borderRadius: 8, border: '1px solid var(--ed-border)', boxShadow: '0 8px 30px rgba(0,0,0,0.35)', background: 'var(--ed-surface-2)', display: 'block' } : { width: `${previewSize?.w ? previewSize.w * zoom : 300}px`, borderRadius: 8, border: '1px solid var(--ed-border)', boxShadow: '0 8px 30px rgba(0,0,0,0.35)', background: 'var(--ed-surface-2)', display: 'block', imageRendering: zoom >= 2 ? 'pixelated' : undefined }), cursor: tab === 'select' ? 'crosshair' : undefined }}
                   onDoubleClick={() => setZoom('fit')}
+                  onClick={(e) => {
+                    if (tab !== 'select') return
+                    const rect = (e.currentTarget as HTMLCanvasElement).getBoundingClientRect()
+                    const x = Math.floor((e.clientX - rect.left) * (sourceDims?.w ?? 1) / rect.width)
+                    const y = Math.floor((e.clientY - rect.top) * (sourceDims?.h ?? 1) / rect.height)
+                    const displayCtx = (e.currentTarget as HTMLCanvasElement).getContext('2d')
+                    if (!displayCtx || !sourceDims) return
+                    try {
+                      const w = rect.width, h = rect.height
+                      const imgData = displayCtx.getImageData(0, 0, w, h)
+                      const mask = floodSelect(
+                        { data: imgData.data, width: Math.round(w), height: Math.round(h) },
+                        Math.min(x, Math.round(w) - 1),
+                        Math.min(y, Math.round(h) - 1),
+                        32,
+                      )
+                      const overlayData = displayCtx.createImageData(w, h)
+                      let minX = w, maxX = 0, minY = h, maxY = 0
+                      for (let i = 0; i < w * h; i++) {
+                        if (mask[i] > 128) {
+                          overlayData.data[i * 4] = 255
+                          overlayData.data[i * 4 + 1] = 30
+                          overlayData.data[i * 4 + 2] = 30
+                          overlayData.data[i * 4 + 3] = 160
+                          const px = i % w, py = Math.floor(i / w)
+                          if (px < minX) minX = px; if (px > maxX) maxX = px
+                          if (py < minY) minY = py; if (py > maxY) maxY = py
+                        }
+                      }
+                      displayCtx.putImageData(overlayData, 0, 0)
+                      for (let i = 0; i < w * h; i++) {
+                        if (mask[i] <= 128) imgData.data[i * 4 + 3] = 0
+                      }
+                      displayCtx.putImageData(imgData, 0, 0)
+                      if (minX <= maxX && minY <= maxY) {
+                        displayCtx.save()
+                        displayCtx.strokeStyle = '#7c5cff'
+                        displayCtx.lineWidth = 2
+                        displayCtx.setLineDash([6, 4])
+                        displayCtx.strokeRect(minX, minY, maxX - minX + 1, maxY - minY + 1)
+                        displayCtx.restore()
+                      }
+                      alert('تم تحديد كلاسيكي (Flood Fill) — الصورة مخفية خارج الشكل + حدود متقطعة + طبقة حمراء.')
+                    } catch {
+                      // Silent failure for classical algorithm
+                    }
+                  }}
                 />
                 <canvas
                   ref={originalDisplayRef}
@@ -680,6 +725,15 @@ export default function CameraRawStudioModal({ onClose }: { onClose: () => void 
           {tab === 'effects' && <EffectsTab effect={effect} setEffect={setEffect} />}
           {tab === 'expand' && <ExpandTab expand={expand} setExpand={setExpand} onEdge={(k, v) => setExpand((e) => ({ ...e, [k]: Math.max(0, v) }))} previewRef={expandPreviewRef} />}
           {tab === 'upscale' && <NeuralTab neural={neural} onModel={(modelId) => setNeural((n) => ({ ...n, modelId }))} onRun={() => void runNeural()} />}
+          {tab === 'select' && (
+            <div style={{ padding: 10, fontSize: 12 }}>
+              <strong>سيلكت كلاسيكي (Flood Fill)</strong>
+              <p style={{ color: 'var(--ed-text-dim)', fontSize: 11, marginTop: 4 }}>
+                اختر نقطة على الصورة بالماوس. هذه خوارزمية كلاسيكية (ليست AI) تعتمد على تشابه اللون.
+              </p>
+              <button style={BTN.dim} onClick={() => alert('اضغط على الصورة لتحديد نقطة البداية. هذه ميزة كلاسيكية.')}>فهمت</button>
+            </div>
+          )}
 
           <div style={{ marginTop: 10, fontSize: 10, color: 'var(--ed-text-dim)', lineHeight: 1.8, borderTop: '1px solid var(--ed-border)', paddingTop: 8 }}>
             ترتيب المعالجة النهائي: توسيع ← خام (GPU) ← ريتوش ← تأثيرات ← تكبير عصبي.
